@@ -1,0 +1,98 @@
+<svg viewBox="0 0 1600 980" width="1600" height="980" xmlns="http://www.w3.org/2000/svg">
+<rect width="1600" height="980" fill="#FFFFFF"/>
+<defs>
+<marker id="ab" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,1 L9,5 L0,9 Z" fill="#5152EC"/></marker>
+<marker id="ao" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,1 L9,5 L0,9 Z" fill="#FF8A10"/></marker>
+<marker id="ag" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,1 L9,5 L0,9 Z" fill="#8A8A85"/></marker>
+</defs>
+
+<text x="60" y="52" font-family="Open Sans, sans-serif" font-size="34" font-weight="700" fill="#5152EC">Real-Time Fraud Detection Architecture</text>
+<text x="60" y="86" font-family="Open Sans, sans-serif" font-size="22" fill="#3A3A38">MonedaSegura — end-to-end transaction flow and real-time decision points</text>
+
+<g font-family="Open Sans, sans-serif" font-size="17">
+<rect x="1120" y="30" width="20" height="20" rx="4" fill="#EEEEFD" stroke="#5152EC" stroke-width="3"/><text x="1150" y="46" fill="#3A3A38">Critical path</text>
+<rect x="1120" y="62" width="20" height="20" rx="4" fill="#FFF1E0" stroke="#FF8A10" stroke-width="3"/><text x="1150" y="78" fill="#3A3A38">Decision / contingency</text>
+<rect x="1350" y="30" width="20" height="20" rx="4" fill="#F2F2F0" stroke="#8A8A85" stroke-width="3"/><text x="1380" y="46" fill="#3A3A38">Off critical path</text>
+</g>
+
+<text x="60" y="180" font-family="Open Sans, sans-serif" font-size="18" font-weight="700" fill="#5152EC" letter-spacing="2">CRITICAL PATH</text>
+
+<g font-family="Open Sans, sans-serif">
+<rect x="60" y="200" width="230" height="120" rx="10" fill="#EEEEFD" stroke="#5152EC" stroke-width="3"/>
+<text x="175" y="248" text-anchor="middle" font-size="24" font-weight="700" fill="#2A2B8A">Transactions</text>
+<text x="175" y="278" text-anchor="middle" font-size="18" fill="#4A4B8A">&amp; session events</text>
+
+<rect x="372" y="200" width="230" height="120" rx="10" fill="#EEEEFD" stroke="#5152EC" stroke-width="3"/>
+<text x="487" y="248" text-anchor="middle" font-size="24" font-weight="700" fill="#2A2B8A">Kafka</text>
+<text x="487" y="278" text-anchor="middle" font-size="18" fill="#4A4B8A">tiered storage</text>
+
+<rect x="684" y="200" width="230" height="120" rx="10" fill="#EEEEFD" stroke="#5152EC" stroke-width="3"/>
+<text x="799" y="242" text-anchor="middle" font-size="24" font-weight="700" fill="#2A2B8A">Flink</text>
+<text x="799" y="270" text-anchor="middle" font-size="17" fill="#4A4B8A">disaggregated state</text>
+<text x="799" y="294" text-anchor="middle" font-size="17" fill="#4A4B8A">features · SpeedNet</text>
+
+<rect x="996" y="200" width="230" height="120" rx="10" fill="#FFF1E0" stroke="#FF8A10" stroke-width="4"/>
+<text x="1111" y="248" text-anchor="middle" font-size="24" font-weight="700" fill="#A85700">Decision point</text>
+<text x="1111" y="278" text-anchor="middle" font-size="18" fill="#A85700">rules + model score</text>
+
+<rect x="1308" y="200" width="230" height="120" rx="10" fill="#EEEEFD" stroke="#5152EC" stroke-width="3"/>
+<text x="1423" y="242" text-anchor="middle" font-size="22" font-weight="700" fill="#2A2B8A">Approve</text>
+<text x="1423" y="270" text-anchor="middle" font-size="22" font-weight="700" fill="#2A2B8A">Block</text>
+<text x="1423" y="298" text-anchor="middle" font-size="22" font-weight="700" fill="#2A2B8A">Review</text>
+</g>
+
+<line x1="290" y1="260" x2="366" y2="260" stroke="#5152EC" stroke-width="4" marker-end="url(#ab)"/>
+<line x1="602" y1="260" x2="678" y2="260" stroke="#5152EC" stroke-width="4" marker-end="url(#ab)"/>
+<line x1="914" y1="260" x2="990" y2="260" stroke="#5152EC" stroke-width="4" marker-end="url(#ab)"/>
+<line x1="1226" y1="260" x2="1302" y2="260" stroke="#5152EC" stroke-width="4" marker-end="url(#ab)"/>
+
+<text x="60" y="400" font-family="Open Sans, sans-serif" font-size="18" font-weight="700" fill="#8A8A85" letter-spacing="2">SUPPORTING</text>
+
+<g font-family="Open Sans, sans-serif">
+<rect x="60" y="420" width="230" height="105" rx="10" fill="#F2F2F0" stroke="#8A8A85" stroke-width="3"/>
+<text x="175" y="460" text-anchor="middle" font-size="21" font-weight="700" fill="#3A3A38">Device data</text>
+<text x="175" y="488" text-anchor="middle" font-size="17" fill="#5A5A55">external provider</text>
+
+<rect x="372" y="420" width="230" height="105" rx="10" fill="#F2F2F0" stroke="#8A8A85" stroke-width="3"/>
+<text x="487" y="460" text-anchor="middle" font-size="21" font-weight="700" fill="#3A3A38">Object storage</text>
+<text x="487" y="488" text-anchor="middle" font-size="17" fill="#5A5A55">aged log data</text>
+
+<rect x="684" y="420" width="230" height="105" rx="10" fill="#F2F2F0" stroke="#8A8A85" stroke-width="3"/>
+<text x="799" y="460" text-anchor="middle" font-size="21" font-weight="700" fill="#3A3A38">Feature store</text>
+<text x="799" y="488" text-anchor="middle" font-size="17" fill="#5A5A55">online · offline</text>
+
+<rect x="996" y="420" width="230" height="105" rx="10" fill="#FFF1E0" stroke="#FF8A10" stroke-width="3"/>
+<text x="1111" y="460" text-anchor="middle" font-size="21" font-weight="700" fill="#A85700">Static rule set</text>
+<text x="1111" y="488" text-anchor="middle" font-size="17" fill="#A85700">last known good</text>
+
+<rect x="684" y="620" width="230" height="105" rx="10" fill="#F2F2F0" stroke="#8A8A85" stroke-width="3"/>
+<text x="799" y="660" text-anchor="middle" font-size="21" font-weight="700" fill="#3A3A38">BatchNet</text>
+<text x="799" y="688" text-anchor="middle" font-size="17" fill="#5A5A55">offline embeddings</text>
+</g>
+
+<path d="M487,320 L487,414" stroke="#8A8A85" stroke-width="3" stroke-dasharray="7 5" marker-end="url(#ag)" fill="none"/>
+<path d="M799,414 L799,326" stroke="#8A8A85" stroke-width="3" marker-end="url(#ag)" fill="none"/>
+<path d="M799,614 L799,531" stroke="#8A8A85" stroke-width="3" marker-end="url(#ag)" fill="none"/>
+<path d="M290,472 L330,472 L330,300 L678,300" stroke="#8A8A85" stroke-width="3" stroke-dasharray="7 5" marker-end="url(#ag)" fill="none"/>
+
+<path d="M1111,326 L1111,414" stroke="#FF8A10" stroke-width="4" marker-end="url(#ao)" fill="none"/>
+<text x="1128" y="360" font-family="Open Sans, sans-serif" font-size="17" font-weight="700" fill="#A85700">circuit breaker</text>
+<text x="1128" y="384" font-family="Open Sans, sans-serif" font-size="16" fill="#A85700">scoring unavailable</text>
+<path d="M1226,472 L1423,472 L1423,326" stroke="#FF8A10" stroke-width="4" marker-end="url(#ao)" fill="none"/>
+
+<text x="60" y="800" font-family="Open Sans, sans-serif" font-size="18" font-weight="700" fill="#8A8A85" letter-spacing="2">FEEDBACK LOOP</text>
+
+<g font-family="Open Sans, sans-serif">
+<rect x="1120" y="820" width="290" height="105" rx="10" fill="#F2F2F0" stroke="#8A8A85" stroke-width="3"/>
+<text x="1265" y="860" text-anchor="middle" font-size="21" font-weight="700" fill="#3A3A38">Risk console</text>
+<text x="1265" y="888" text-anchor="middle" font-size="17" fill="#5A5A55">case queue · labelling</text>
+
+<rect x="600" y="820" width="290" height="105" rx="10" fill="#F2F2F0" stroke="#8A8A85" stroke-width="3"/>
+<text x="745" y="860" text-anchor="middle" font-size="21" font-weight="700" fill="#3A3A38">Versioned pipeline</text>
+<text x="745" y="888" text-anchor="middle" font-size="17" fill="#5A5A55">backtest · promote</text>
+</g>
+
+<path d="M1423,326 L1423,760 L1265,760 L1265,814" stroke="#8A8A85" stroke-width="3" marker-end="url(#ag)" fill="none"/>
+<path d="M1114,872 L896,872" stroke="#8A8A85" stroke-width="3" marker-end="url(#ag)" fill="none"/>
+<path d="M745,814 L745,762 L799,762 L799,731" stroke="#8A8A85" stroke-width="3" marker-end="url(#ag)" fill="none"/>
+</svg>

@@ -1,0 +1,13 @@
+# Lint configuration for the OpenAPI contracts in docs/api/.
+# Run: npx @redocly/cli@1.34.0 lint
+apis:
+  decision-api:
+    root: docs/api/decision-api.yaml
+  scoring-api:
+    root: docs/api/scoring-api.yaml
+extends:
+  - recommended
+rules:
+  info-license: off            # academic project, no license decided yet
+  no-server-example.com: off   # localhost / docker-compose hosts are intended
+  operation-4xx-response: warn   # /health has no 4xx on purpose (unauthenticated probe)
