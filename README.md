@@ -32,11 +32,21 @@ data/                     Source material: challenge, course instructions, paper
 .claude/skills            Symlink to .agents/skills
 AGENTS.md / CLAUDE.md     Instructions for coding agents
 redocly.yaml              Lint config for the OpenAPI contracts
+scripts/                  bootstrap-workspace.sh: clones the 4 repos as siblings
+.github/workflows/ci.yml  CI: no forbidden files, contract lint, compose validation and smoke test
 docker-compose.yml        Local stack (profiles: default infra, apps, seed, tools)
 .env.example              Template for .env (never commit .env)
 ```
 
 ## Running locally
+
+The repos do not reference each other through git: they rely on being **sibling folders**. Set up the workspace once:
+
+```bash
+mkdir SecureMoney && cd SecureMoney
+git clone https://github.com/nickkmm/monedasegura-infra.git
+sh monedasegura-infra/scripts/bootstrap-workspace.sh   # clones the other three next to it
+```
 
 ```bash
 # workspace layout
