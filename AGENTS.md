@@ -25,6 +25,7 @@ Orchestration (`docker-compose`, configuration) and the **shared source of truth
 - Never commit secrets: only `.env.example`, never `.env`.
 - `docker-compose.yml` is the integration contract between repos (ports, env variables, the scoring image's `seed` command; see README "What each sibling repo must provide"). Changing it affects the other repos: say so in the PR. Pin image versions; never use `latest`. Check with `docker compose --env-file .env.example config` before opening the PR.
 - Do not modify files in the sibling repos from here; they have their own PRs.
+- Deployment is `.github/workflows/deploy.yml` (reusable; the other repos call it) running `scripts/deploy.sh` on the server. Never put server addresses, keys or production values in the repo: they are `DEPLOY_*` repository secrets and the server's own `.env`.
 - CI (`.github/workflows/ci.yml`) must pass: it rejects tracked papers/datasets, lints the contracts, validates compose for every profile and smoke-tests Postgres, Redis and Kafka.
 
 ## Skills

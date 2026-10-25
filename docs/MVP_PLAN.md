@@ -49,6 +49,7 @@ HTGNN / Lambda, Flink, Feast, tiered storage, disaggregated state, sustained 500
 - Everything packaged with **Docker** (one container per service + Postgres + Kafka + Redis), orchestrated with **docker-compose** on a single host.
 - **No Kubernetes:** ~6 containers on one host, no autoscaling or multiple nodes; K8s would add complexity with no benefit. It is argued in the design as the future scaling path.
 - **Pending decision:** develop locally with docker-compose from day 1; decide around week 5 whether to deploy to **GCP Compute Engine** (VM with ≥4 GB RAM, docker-compose, Caddy for HTTPS; trial credits require a card, a budget alert and shutting the VM down afterwards). Zero-cost alternatives: student credits or a local demo.
+- **Continuous deployment (decided):** whatever the host, it is one VM running the same `docker-compose.yml`. Every merge to `main` in any of the four repos runs `.github/workflows/deploy.yml` (in this repo; the other three call it), which connects over SSH and runs `scripts/deploy.sh`: move all four repos to the latest `main`, then `docker compose --profile apps up -d --build`. The server's `.env` is created once by hand and never leaves the server. Until the `DEPLOY_*` secrets are set, the job skips. Setup steps: README, "Deployment".
 - PaaS such as Render/Railway/Fly are ruled out: poor fit for Kafka, and cold starts distort latency.
 - Final latency is measured on the deployed VM, not locally.
 

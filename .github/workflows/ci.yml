@@ -24,6 +24,9 @@ jobs:
       - name: Lint OpenAPI contracts
         run: npx --yes @redocly/cli@1.34.0 lint
 
+      - name: Check shell scripts
+        run: for f in scripts/*.sh; do sh -n "$f"; done
+
       - name: Validate docker-compose for every profile
         run: |
           docker compose --env-file .env.example config --quiet
