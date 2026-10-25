@@ -15,7 +15,7 @@ See `docs/architecture.md` and its two diagrams in `docs/diagrams/` (decision pa
 | `monedasegura-scoring-service` | Python/FastAPI: `/score`, `/retrain`, model files, Sparkov seed job | Nicholas, Laura |
 | `monedasegura-infra` | `docker-compose.yml`, `.env.example`, Postgres/Kafka/Redis config, startup and seed scripts; `docs/` (context, ERD, diagrams, OpenAPI contracts) | Nicolás |
 
-**Contract first.** Before coding, the OpenAPI contracts for `app ↔ decision-service` and `decision-service ↔ scoring-service` are written; each repo works against mocks until the others exist. Locally the 4 repos are cloned as sibling folders inside `SecureMoney/`, and the compose file builds them with `build: ../<repo>`; later each repo can publish its image (GHCR) and compose only pulls. Everything starts with a single `docker compose up` from `monedasegura-infra`.
+**Contract first.** Before coding, the OpenAPI contracts are written: `docs/api/decision-api.yaml` (app → decision-service) and `docs/api/scoring-api.yaml` (decision-service → scoring-service), plus the feature catalog `docs/features.md`; each repo works against mocks until the others exist. Locally the 4 repos are cloned as sibling folders inside `SecureMoney/`, and the compose file builds them with `build: ../<repo>`; later each repo can publish its image (GHCR) and compose only pulls. Everything starts with a single `docker compose up` from `monedasegura-infra`.
 
 ## 3. Scope by priority
 

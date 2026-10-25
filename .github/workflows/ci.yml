@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: No third-party papers or datasets are tracked
+        run: |
+          if git ls-files | grep -E '^data/02_references/|\.(csv|parquet)$'; then
+            echo "These files must never be committed (see AGENTS.md)"; exit 1
+          fi
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Lint OpenAPI contracts
+        run: npx --yes @redocly/cli@1.34.0 lint
+
+      - name: Validate docker-compose for every profile
+        run: |
+          docker compose --env-file .env.example config --quiet
+          docker compose --env-file .env.example --profile apps --profile seed --profile tools config --quiet
+
+      - name: Smoke test the infrastructure services
+        run: |
+          docker compose --env-file .env.example up -d --wait postgres redis kafka
+          docker compose --env-file .env.example run --rm kafka-init
+          docker compose --env-file .env.example exec -T postgres pg_isready -U monedasegura -d monedasegura
+          docker compose --env-file .env.example exec -T redis redis-cli ping
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose --env-file .env.example logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose --env-file .env.example down -v

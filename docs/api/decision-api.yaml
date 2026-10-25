@@ -1,0 +1,1217 @@
+openapi: 3.1.0
+info:
+  title: MonedaSegura decision-api
+  version: 1.0.0
+  summary: Public API of the decision-service, consumed by the Flutter app.
+  description: |
+    Owned by `monedasegura-decision-service` (Spring Boot). Its only client in the MVP is
+    `monedasegura-app` (Flutter): the analyst console and the admin simulator.
+
+    Conventions:
+    - Authentication: `POST /auth/login` returns a JWT; every other call sends
+      `Authorization: Bearer <token>`. Authorization is **by permission**, never by role:
+      each operation lists its permission in `x-required-permission` (catalog in
+      `docs/model.md` §4). Missing permission → `403`.
+    - Errors use RFC 9457 problem details (`application/problem+json`).
+    - Lists are paginated with `page` (0-based) and `size` (default 20, max 100).
+    - Amounts are COP integers (no decimals). Timestamps are ISO 8601 with offset.
+    - Feature names come from `docs/features.md`; the data model from `docs/model.md`.
+    - Personal data (customer name, document) is returned **masked**.
+    - All identifiers and enum values are in English; the app translates them for display.
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development (docker-compose)
+security:
+  - bearerAuth: []
+tags:
+  - name: auth
+    description: Sign-in and current user
+  - name: transactions
+    description: Ingestion of transactions and session events, and their decisions
+  - name: cases
+    description: Case queue, investigation and labeling
+  - name: rules
+    description: Versioned rules and their lifecycle (shadow, backtest, approval)
+  - name: features
+    description: Feature catalog used by the rule editor
+  - name: models
+    description: Model registry, manual retraining and activation
+  - name: simulator
+    description: Synthetic scenarios (admin only)
+  - name: customers
+    description: Masked customers, for the simulator
+  - name: dashboard
+    description: Decision and latency metrics
+  - name: users
+    description: User and role administration
+
+paths:
+  # ---------------------------------------------------------------- auth
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Sign in and get a JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: Wrong credentials or inactive user
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /me:
+    get:
+      tags: [auth]
+      operationId: getCurrentUser
+      summary: Current user, roles and permissions
+      description: The app uses the permission list to show or hide screens and buttons.
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ---------------------------------------------------------------- transactions
+  /transactions:
+    post:
+      tags: [transactions]
+      operationId: submitTransaction
+      summary: Submit a transaction and get its decision
+      description: |
+        The critical path (steps 1→4 of the decision-path diagram): features → rules → score
+        → verdict, in under 500 ms. In the MVP only the simulator submits transactions, so it
+        requires `SIMULATOR_RUN`. The body never carries ground truth (`scenario`); a
+        transaction submitted here is stored with `source = SIMULATOR`, `scenario = NORMAL`
+        unless it comes from `POST /simulator/runs`.
+        `BALANCE_QUERY` transactions are stored and counted for velocity but not scored:
+        the response has `decision: null`.
+      x-required-permission: SIMULATOR_RUN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransactionInput' }
+      responses:
+        '201':
+          description: Transaction stored and decided
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransactionResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /transactions/{transactionId}:
+    get:
+      tags: [transactions]
+      operationId: getTransaction
+      summary: Transaction with all its decisions
+      x-required-permission: CASE_READ
+      parameters: [ { $ref: '#/components/parameters/TransactionId' } ]
+      responses:
+        '200':
+          description: Transaction
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransactionDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /session-events:
+    post:
+      tags: [transactions]
+      operationId: submitSessionEvent
+      summary: Submit an authentication/session event
+      description: Login results, password changes and device registrations. They feed ATO features; they are not scored.
+      x-required-permission: SIMULATOR_RUN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionEventInput' }
+      responses:
+        '201':
+          description: Event stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionEvent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------------------------------------------------- cases
+  /cases:
+    get:
+      tags: [cases]
+      operationId: listCases
+      summary: Case queue
+      description: Ordered by verdict (`BLOCK` first), then by score (highest first), then by `openedAt`.
+      x-required-permission: CASE_READ
+      parameters:
+        - name: status
+          in: query
+          schema: { type: array, items: { $ref: '#/components/schemas/CaseStatus' } }
+          style: form
+          explode: false
+          description: Defaults to `OPEN,IN_REVIEW`.
+        - name: verdict
+          in: query
+          schema: { $ref: '#/components/schemas/Verdict' }
+        - name: assignedToMe
+          in: query
+          schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: One page of cases
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMeta'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/CaseSummary' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /cases/{caseId}:
+    get:
+      tags: [cases]
+      operationId: getCase
+      summary: Case detail
+      description: Everything the analyst needs on one screen — transaction, masked customer, decision with features and rule hits, and the customer's recent activity.
+      x-required-permission: CASE_READ
+      parameters: [ { $ref: '#/components/parameters/CaseId' } ]
+      responses:
+        '200':
+          description: Case
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CaseDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /cases/{caseId}/take:
+    post:
+      tags: [cases]
+      operationId: takeCase
+      summary: Assign the case to the current analyst
+      description: '`OPEN` → `IN_REVIEW`.'
+      x-required-permission: CASE_RESOLVE
+      parameters: [ { $ref: '#/components/parameters/CaseId' } ]
+      responses:
+        '200':
+          description: Case taken
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CaseSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /cases/{caseId}/resolve:
+    post:
+      tags: [cases]
+      operationId: resolveCase
+      summary: Label the case
+      description: '`IN_REVIEW` → `RESOLVED`. Only the assigned analyst can resolve it. Labeling does not release or reprocess the transaction.'
+      x-required-permission: CASE_RESOLVE
+      parameters: [ { $ref: '#/components/parameters/CaseId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label: { $ref: '#/components/schemas/CaseLabel' }
+                notes: { type: string, maxLength: 2000 }
+      responses:
+        '200':
+          description: Case resolved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CaseSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------------------------------------------------------- rules
+  /rules:
+    get:
+      tags: [rules]
+      operationId: listRules
+      summary: Rules with their active and latest versions
+      x-required-permission: RULE_READ
+      responses:
+        '200':
+          description: All rules
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/RuleSummary' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [rules]
+      operationId: createRule
+      summary: Create a rule with its first version (DRAFT)
+      x-required-permission: RULE_WRITE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RuleInput' }
+      responses:
+        '201':
+          description: Rule created; version 1 is DRAFT
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuleDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /rules/{ruleId}:
+    get:
+      tags: [rules]
+      operationId: getRule
+      summary: Rule with all its versions
+      x-required-permission: RULE_READ
+      parameters: [ { $ref: '#/components/parameters/RuleId' } ]
+      responses:
+        '200':
+          description: Rule
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuleDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /rules/{ruleId}/versions:
+    post:
+      tags: [rules]
+      operationId: createRuleVersion
+      summary: Create a new DRAFT version
+      description: Active versions are never edited; a change is always a new version.
+      x-required-permission: RULE_WRITE
+      parameters: [ { $ref: '#/components/parameters/RuleId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RuleVersionInput' }
+      responses:
+        '201':
+          description: New DRAFT version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuleVersion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /rules/{ruleId}/versions/{version}:
+    get:
+      tags: [rules]
+      operationId: getRuleVersion
+      summary: One version, with its shadow statistics and backtest
+      x-required-permission: RULE_READ
+      parameters: [ { $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/Version' } ]
+      responses:
+        '200':
+          description: Version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuleVersion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [rules]
+      operationId: updateDraftRuleVersion
+      summary: Edit a DRAFT version
+      x-required-permission: RULE_WRITE
+      parameters: [ { $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/Version' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RuleVersionInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuleVersion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /rules/{ruleId}/versions/{version}/shadow:
+    post:
+      tags: [rules]
+      operationId: startShadow
+      summary: Start running the version in shadow mode
+      description: '`DRAFT` → `SHADOW`. From now on it is evaluated on live traffic and recorded, without affecting verdicts.'
+      x-required-permission: RULE_WRITE
+      parameters: [ { $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/Version' } ]
+      responses:
+        '200': { $ref: '#/components/responses/RuleVersionOk' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /rules/{ruleId}/versions/{version}/backtest:
+    post:
+      tags: [rules]
+      operationId: runBacktest
+      summary: Run the version against labeled cases
+      description: Evaluates the version against every resolved `fraud_case` and stores the result in `backtest_json`, next to the active version's numbers. Allowed in `DRAFT` and `SHADOW`.
+      x-required-permission: RULE_WRITE
+      parameters: [ { $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/Version' } ]
+      responses:
+        '200':
+          description: Backtest stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Backtest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /rules/{ruleId}/versions/{version}/submit:
+    post:
+      tags: [rules]
+      operationId: submitForApproval
+      summary: Ask for approval
+      description: '`SHADOW` → `PENDING_APPROVAL`. Requires shadow results and a backtest; otherwise `409`.'
+      x-required-permission: RULE_WRITE
+      parameters: [ { $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/Version' } ]
+      responses:
+        '200': { $ref: '#/components/responses/RuleVersionOk' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /rules/{ruleId}/versions/{version}/approve:
+    post:
+      tags: [rules]
+      operationId: approveRuleVersion
+      summary: Approve and activate
+      description: '`PENDING_APPROVAL` → `ACTIVE`; the previous active version becomes `RETIRED`. The approver must not be the creator (`403` otherwise).'
+      x-required-permission: RULE_APPROVE
+      parameters: [ { $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/Version' } ]
+      responses:
+        '200': { $ref: '#/components/responses/RuleVersionOk' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /rules/{ruleId}/versions/{version}/reject:
+    post:
+      tags: [rules]
+      operationId: rejectRuleVersion
+      summary: Send back to DRAFT
+      description: '`PENDING_APPROVAL` → `DRAFT`, with a reason for the author.'
+      x-required-permission: RULE_APPROVE
+      parameters: [ { $ref: '#/components/parameters/RuleId' }, { $ref: '#/components/parameters/Version' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, maxLength: 1000 }
+      responses:
+        '200': { $ref: '#/components/responses/RuleVersionOk' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /features:
+    get:
+      tags: [features]
+      operationId: listFeatures
+      summary: Feature catalog for the rule editor
+      description: Mirrors `docs/features.md`, plus the pseudo-feature `score` that rules may use.
+      x-required-permission: RULE_READ
+      responses:
+        '200':
+          description: Catalog
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/FeatureDefinition' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------------------------------------------------- models
+  /models:
+    get:
+      tags: [models]
+      operationId: listModels
+      summary: Model registry
+      x-required-permission: MODEL_READ
+      responses:
+        '200':
+          description: All model versions, newest first
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/ModelVersion' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /models/retrain:
+    post:
+      tags: [models]
+      operationId: retrainNow
+      summary: Retrain now (manual trigger)
+      description: Same flow as the daily 02:00 job, with `trigger = MANUAL`. Returns the candidate and the quality-gate result; if it passes, the candidate is already `ACTIVE`.
+      x-required-permission: MODEL_TRAIN
+      responses:
+        '201':
+          description: Candidate trained
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModelVersion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503':
+          description: scoring-service unavailable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /models/{modelId}/activate:
+    post:
+      tags: [models]
+      operationId: activateModel
+      summary: Activate a CANDIDATE manually
+      description: Used when a candidate failed the quality gate but a data scientist decides to activate it anyway.
+      x-required-permission: MODEL_TRAIN
+      parameters:
+        - name: modelId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Activated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModelVersion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------------------------------------------------------- simulator
+  /simulator/runs:
+    post:
+      tags: [simulator]
+      operationId: runSimulation
+      summary: Generate a scenario for a customer
+      description: |
+        The server builds the events of the scenario from the customer's real habits
+        (`docs/data.md` §3), stores them with `source = SIMULATOR` and the scenario as
+        ground truth, and runs every transaction through the same decision path as
+        `POST /transactions`. Returns what was generated and how it was decided.
+      x-required-permission: SIMULATOR_RUN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SimulationRequest' }
+      responses:
+        '201':
+          description: Scenario generated and decided
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SimulationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /customers:
+    get:
+      tags: [customers]
+      operationId: listCustomers
+      summary: Customers (masked), for the simulator picker
+      x-required-permission: SIMULATOR_RUN
+      parameters:
+        - name: q
+          in: query
+          description: Search by masked name or city.
+          schema: { type: string }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: One page of customers
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMeta'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/Customer' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------------------------------------------------- dashboard
+  /dashboard/metrics:
+    get:
+      tags: [dashboard]
+      operationId: getDashboardMetrics
+      summary: Decision metrics for a time window
+      x-required-permission: DASHBOARD_READ
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+          description: Defaults to 24 h ago.
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+          description: Defaults to now.
+      responses:
+        '200':
+          description: Metrics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardMetrics' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------------------------------------------------- users
+  /users:
+    get:
+      tags: [users]
+      operationId: listUsers
+      summary: App users
+      x-required-permission: USER_ADMIN
+      responses:
+        '200':
+          description: All users
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/User' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [users]
+      operationId: createUser
+      summary: Create a user
+      x-required-permission: USER_ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName, email, password, roles]
+              properties:
+                fullName: { type: string, maxLength: 120 }
+                email: { type: string, format: email }
+                password: { type: string, format: password, minLength: 10 }
+                roles: { type: array, minItems: 1, items: { $ref: '#/components/schemas/RoleCode' } }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /users/{userId}:
+    patch:
+      tags: [users]
+      operationId: updateUser
+      summary: Change roles or deactivate
+      description: Users are deactivated, never deleted, so their history stays traceable.
+      x-required-permission: USER_ADMIN
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                roles: { type: array, minItems: 1, items: { $ref: '#/components/schemas/RoleCode' } }
+                active: { type: boolean }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /roles:
+    get:
+      tags: [users]
+      operationId: listRoles
+      summary: Role catalog with permissions
+      x-required-permission: USER_ADMIN
+      responses:
+        '200':
+          description: Roles
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Role' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Issued by `POST /auth/login`; expires after ~8 h; carries the user's permissions as claims.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    Size:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    TransactionId:
+      name: transactionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CaseId:
+      name: caseId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RuleId:
+      name: ruleId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Version:
+      name: version
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+
+  responses:
+    BadRequest:
+      description: Invalid input
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthorized:
+      description: Missing, invalid or expired JWT
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: The user lacks the required permission (or breaks a rule such as approving one's own version)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: The resource is not in a state that allows this operation
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    RuleVersionOk:
+      description: Version after the transition
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/RuleVersion' }
+
+  schemas:
+    # ----- enums
+    Verdict: { type: string, enum: [APPROVE, REVIEW, BLOCK] }
+    DecisionKind: { type: string, enum: [ORIGINAL, REEVALUATION] }
+    TransactionType: { type: string, enum: [DEBIT, CREDIT, TRANSFER, BALANCE_QUERY] }
+    TransactionSource: { type: string, enum: [SEED_DATASET, SIMULATOR] }
+    Scenario: { type: string, enum: [NORMAL, DATASET_FRAUD, ORIGINATION, ATO] }
+    SessionEventType: { type: string, enum: [LOGIN_OK, LOGIN_FAILED, PASSWORD_CHANGED, DEVICE_REGISTERED] }
+    CaseStatus: { type: string, enum: [OPEN, IN_REVIEW, RESOLVED] }
+    CaseLabel: { type: string, enum: [CONFIRMED_FRAUD, DISMISSED] }
+    RuleAction: { type: string, enum: [REVIEW, BLOCK] }
+    RuleStatus: { type: string, enum: [DRAFT, SHADOW, PENDING_APPROVAL, ACTIVE, RETIRED] }
+    ModelStatus: { type: string, enum: [CANDIDATE, ACTIVE, RETIRED] }
+    ModelTrigger: { type: string, enum: [SCHEDULED, MANUAL] }
+    RoleCode: { type: string, enum: [ANALYST, RISK_LEAD, DATA_SCIENTIST, AUDITOR, ADMIN] }
+    PermissionCode:
+      type: string
+      enum: [CASE_READ, CASE_RESOLVE, RULE_READ, RULE_WRITE, RULE_APPROVE, MODEL_READ, MODEL_TRAIN, SIMULATOR_RUN, DASHBOARD_READ, USER_ADMIN]
+
+    # ----- common
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [title, status]
+      properties:
+        type: { type: string, format: uri, default: about:blank }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        errors:
+          type: array
+          description: Field-level validation errors (400 only).
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+    PageMeta:
+      type: object
+      required: [page, size, total]
+      properties:
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1 }
+        total: { type: integer, minimum: 0 }
+    UserRef:
+      type: object
+      required: [id, fullName]
+      properties:
+        id: { type: string, format: uuid }
+        fullName: { type: string }
+
+    # ----- auth and users
+    LoginResponse:
+      type: object
+      required: [accessToken, expiresAt, user]
+      properties:
+        accessToken: { type: string, description: JWT }
+        tokenType: { type: string, const: Bearer }
+        expiresAt: { type: string, format: date-time }
+        user: { $ref: '#/components/schemas/User' }
+    User:
+      type: object
+      required: [id, fullName, email, active, roles, permissions]
+      properties:
+        id: { type: string, format: uuid }
+        fullName: { type: string }
+        email: { type: string, format: email }
+        active: { type: boolean }
+        roles: { type: array, items: { $ref: '#/components/schemas/RoleCode' } }
+        permissions: { type: array, items: { $ref: '#/components/schemas/PermissionCode' } }
+    Role:
+      type: object
+      required: [code, name, permissions]
+      properties:
+        code: { $ref: '#/components/schemas/RoleCode' }
+        name: { type: string }
+        permissions: { type: array, items: { $ref: '#/components/schemas/PermissionCode' } }
+
+    # ----- customers
+    Customer:
+      type: object
+      description: Customer with personal data masked.
+      required: [id, maskedName, maskedDocument, homeCity, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        maskedName: { type: string, example: 'María F*** G***' }
+        maskedDocument: { type: string, example: '****4821' }
+        homeCity: { type: string, example: Cali }
+        createdAt: { type: string, format: date-time }
+
+    # ----- transactions and decisions
+    TransactionInput:
+      type: object
+      required: [customerId, deviceFingerprint, type, amount, latitude, longitude]
+      properties:
+        customerId: { type: string, format: uuid }
+        deviceFingerprint: { type: string, maxLength: 64, description: Unknown fingerprints register a new device. }
+        deviceOs: { type: string, enum: [ANDROID, IOS] }
+        type: { $ref: '#/components/schemas/TransactionType' }
+        category: { type: string, example: grocery_pos }
+        amount: { type: integer, minimum: 0, description: COP }
+        currency: { type: string, const: COP, default: COP }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        counterparty: { type: string, maxLength: 120 }
+        occurredAt: { type: string, format: date-time, description: Defaults to the server time. }
+    Transaction:
+      type: object
+      required: [id, customerId, deviceId, type, amount, currency, latitude, longitude, source, occurredAt]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        deviceId: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/TransactionType' }
+        category: { type: string }
+        amount: { type: integer, description: COP }
+        currency: { type: string, const: COP }
+        latitude: { type: number }
+        longitude: { type: number }
+        counterparty: { type: string }
+        source: { $ref: '#/components/schemas/TransactionSource' }
+        scenario:
+          $ref: '#/components/schemas/Scenario'
+          description: Ground truth. Returned only to users with `DASHBOARD_READ`, for measuring; omitted otherwise.
+        occurredAt: { type: string, format: date-time }
+    RuleHit:
+      type: object
+      required: [ruleId, ruleCode, version, action, matched, shadow]
+      properties:
+        ruleId: { type: string, format: uuid }
+        ruleCode: { type: string, example: VELOCITY_5M }
+        version: { type: integer }
+        action: { $ref: '#/components/schemas/RuleAction' }
+        matched: { type: boolean }
+        shadow: { type: boolean }
+    Decision:
+      type: object
+      required: [id, transactionId, kind, verdict, degraded, features, ruleHits, latencyMs, decidedAt]
+      properties:
+        id: { type: string, format: uuid }
+        transactionId: { type: string, format: uuid }
+        kind: { $ref: '#/components/schemas/DecisionKind' }
+        verdict: { $ref: '#/components/schemas/Verdict' }
+        score: { type: [number, 'null'], minimum: 0, maximum: 1, description: Null when degraded. }
+        modelVersion: { type: [string, 'null'], example: v3, description: Null when degraded. }
+        degraded: { type: boolean, description: Decided with rules only because scoring was unavailable. }
+        features:
+          type: object
+          description: The exact feature vector used (`docs/features.md`).
+          additionalProperties: true
+        ruleHits: { type: array, items: { $ref: '#/components/schemas/RuleHit' } }
+        latencyMs: { type: integer, minimum: 0 }
+        decidedAt: { type: string, format: date-time }
+        caseId: { type: [string, 'null'], format: uuid, description: Set when the verdict opened a case. }
+    TransactionResult:
+      type: object
+      required: [transaction, decision]
+      properties:
+        transaction: { $ref: '#/components/schemas/Transaction' }
+        decision:
+          oneOf:
+            - $ref: '#/components/schemas/Decision'
+            - type: 'null'
+          description: Null for BALANCE_QUERY.
+    TransactionDetail:
+      type: object
+      required: [transaction, customer, decisions]
+      properties:
+        transaction: { $ref: '#/components/schemas/Transaction' }
+        customer: { $ref: '#/components/schemas/Customer' }
+        decisions: { type: array, items: { $ref: '#/components/schemas/Decision' }, description: 'Original first, then re-evaluations.' }
+    SessionEventInput:
+      type: object
+      required: [customerId, deviceFingerprint, eventType]
+      properties:
+        customerId: { type: string, format: uuid }
+        deviceFingerprint: { type: string, maxLength: 64 }
+        eventType: { $ref: '#/components/schemas/SessionEventType' }
+        ipAddress: { type: string, format: ipv4 }
+        occurredAt: { type: string, format: date-time }
+    SessionEvent:
+      type: object
+      required: [id, customerId, deviceId, eventType, occurredAt]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        deviceId: { type: string, format: uuid }
+        eventType: { $ref: '#/components/schemas/SessionEventType' }
+        ipAddress: { type: string }
+        occurredAt: { type: string, format: date-time }
+
+    # ----- cases
+    CaseSummary:
+      type: object
+      required: [id, status, verdict, amount, customer, openedAt]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/CaseStatus' }
+        label: { oneOf: [ { $ref: '#/components/schemas/CaseLabel' }, { type: 'null' } ] }
+        verdict: { $ref: '#/components/schemas/Verdict' }
+        score: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        degraded: { type: boolean }
+        amount: { type: integer, description: COP }
+        category: { type: string }
+        customer: { $ref: '#/components/schemas/Customer' }
+        assignedTo: { oneOf: [ { $ref: '#/components/schemas/UserRef' }, { type: 'null' } ] }
+        openedAt: { type: string, format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+    CaseDetail:
+      allOf:
+        - $ref: '#/components/schemas/CaseSummary'
+        - type: object
+          required: [transaction, decision, recentTransactions, recentSessionEvents]
+          properties:
+            notes: { type: [string, 'null'] }
+            transaction: { $ref: '#/components/schemas/Transaction' }
+            decision: { $ref: '#/components/schemas/Decision' }
+            recentTransactions:
+              type: array
+              description: The customer's last 10 transactions before this one.
+              items: { $ref: '#/components/schemas/Transaction' }
+            recentSessionEvents:
+              type: array
+              description: The customer's session events in the 24 h before the transaction.
+              items: { $ref: '#/components/schemas/SessionEvent' }
+
+    # ----- rules
+    Condition:
+      type: object
+      required: [feature, op, value]
+      properties:
+        feature: { type: string, description: 'A name from `GET /features` (including `score`).', example: tx_count_5m }
+        op: { type: string, enum: ['>', '>=', '<', '<=', '=', '!=', in] }
+        value:
+          description: Number, boolean or string; an array for `in`.
+          oneOf:
+            - type: number
+            - type: boolean
+            - type: string
+            - type: array
+              items: { type: [string, number] }
+    ConditionSet:
+      type: object
+      description: All conditions must hold (AND).
+      required: [all]
+      properties:
+        all: { type: array, minItems: 1, items: { $ref: '#/components/schemas/Condition' } }
+      example:
+        all:
+          - { feature: tx_count_5m, op: '>', value: 5 }
+          - { feature: is_new_device, op: '=', value: true }
+    RuleInput:
+      type: object
+      required: [code, name, condition, action]
+      properties:
+        code: { type: string, pattern: '^[A-Z][A-Z0-9_]{2,39}$', example: VELOCITY_5M }
+        name: { type: string, maxLength: 120 }
+        description: { type: string }
+        condition: { $ref: '#/components/schemas/ConditionSet' }
+        action: { $ref: '#/components/schemas/RuleAction' }
+    RuleVersionInput:
+      type: object
+      required: [condition, action]
+      properties:
+        condition: { $ref: '#/components/schemas/ConditionSet' }
+        action: { $ref: '#/components/schemas/RuleAction' }
+    ShadowStats:
+      type: object
+      description: What the version would have done on live traffic since it entered SHADOW.
+      required: [since, evaluated, matched, verdictChanges]
+      properties:
+        since: { type: string, format: date-time }
+        evaluated: { type: integer, minimum: 0 }
+        matched: { type: integer, minimum: 0 }
+        verdictChanges: { type: integer, minimum: 0, description: Decisions whose verdict would have been different with this version active. }
+    BacktestCounts:
+      type: object
+      required: [truePositives, falsePositives, falseNegatives, trueNegatives]
+      properties:
+        truePositives: { type: integer, minimum: 0, description: Confirmed frauds it flags. }
+        falsePositives: { type: integer, minimum: 0, description: Legitimate customers it bothers. }
+        falseNegatives: { type: integer, minimum: 0, description: Confirmed frauds it misses. }
+        trueNegatives: { type: integer, minimum: 0 }
+    Backtest:
+      type: object
+      required: [runAt, casesEvaluated, candidate]
+      properties:
+        runAt: { type: string, format: date-time }
+        casesEvaluated: { type: integer, minimum: 0 }
+        candidate: { $ref: '#/components/schemas/BacktestCounts' }
+        active:
+          oneOf:
+            - $ref: '#/components/schemas/BacktestCounts'
+            - type: 'null'
+          description: The currently active version's numbers on the same cases; null if the rule has no active version.
+    RuleVersion:
+      type: object
+      required: [ruleId, version, condition, action, status, createdBy, createdAt]
+      properties:
+        ruleId: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+        condition: { $ref: '#/components/schemas/ConditionSet' }
+        action: { $ref: '#/components/schemas/RuleAction' }
+        status: { $ref: '#/components/schemas/RuleStatus' }
+        createdBy: { $ref: '#/components/schemas/UserRef' }
+        createdAt: { type: string, format: date-time }
+        approvedBy: { oneOf: [ { $ref: '#/components/schemas/UserRef' }, { type: 'null' } ] }
+        approvedAt: { type: [string, 'null'], format: date-time }
+        rejectionReason: { type: [string, 'null'] }
+        shadowStats: { oneOf: [ { $ref: '#/components/schemas/ShadowStats' }, { type: 'null' } ] }
+        backtest: { oneOf: [ { $ref: '#/components/schemas/Backtest' }, { type: 'null' } ] }
+    RuleSummary:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        description: { type: string }
+        activeVersion: { oneOf: [ { $ref: '#/components/schemas/RuleVersion' }, { type: 'null' } ] }
+        latestVersion: { $ref: '#/components/schemas/RuleVersion' }
+    RuleDetail:
+      allOf:
+        - $ref: '#/components/schemas/RuleSummary'
+        - type: object
+          required: [versions]
+          properties:
+            versions: { type: array, items: { $ref: '#/components/schemas/RuleVersion' }, description: Newest first. }
+    FeatureDefinition:
+      type: object
+      required: [name, type, description]
+      properties:
+        name: { type: string, example: tx_count_5m }
+        type: { type: string, enum: [number, integer, boolean, string] }
+        description: { type: string }
+        allowedValues: { type: array, items: { type: string }, description: For string features such as `category`. }
+
+    # ----- models
+    ModelVersion:
+      type: object
+      required: [id, version, algorithm, trigger, status, metrics, trainedAt]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: string, example: v4 }
+        algorithm: { type: string, enum: [LIGHTGBM] }
+        trigger: { $ref: '#/components/schemas/ModelTrigger' }
+        trainedBy: { oneOf: [ { $ref: '#/components/schemas/UserRef' }, { type: 'null' } ] }
+        status: { $ref: '#/components/schemas/ModelStatus' }
+        metrics:
+          type: object
+          required: [prAuc, precision, recall]
+          properties:
+            prAuc: { type: number }
+            precision: { type: number }
+            recall: { type: number }
+        qualityGate:
+          type: object
+          description: Result of the automatic gate (`docs/model.md` §8).
+          required: [passed, checks]
+          properties:
+            passed: { type: boolean }
+            checks:
+              type: array
+              items:
+                type: object
+                required: [name, passed]
+                properties:
+                  name: { type: string, enum: [MIN_NEW_LABELS, PR_AUC_NOT_WORSE, RECALL_NOT_WORSE] }
+                  passed: { type: boolean }
+                  detail: { type: string }
+        trainedAt: { type: string, format: date-time }
+
+    # ----- simulator
+    SimulationRequest:
+      type: object
+      required: [scenario]
+      properties:
+        scenario: { type: string, enum: [NORMAL, CARD_FRAUD, ATO, ORIGINATION] }
+        customerId:
+          type: string
+          format: uuid
+          description: Required except for ORIGINATION, which creates a brand-new customer.
+        count: { type: integer, minimum: 1, maximum: 50, default: 1, description: Number of transactions (NORMAL and CARD_FRAUD). }
+    SimulationResult:
+      type: object
+      required: [scenario, customer, sessionEvents, results]
+      properties:
+        scenario: { type: string, enum: [NORMAL, CARD_FRAUD, ATO, ORIGINATION] }
+        customer: { $ref: '#/components/schemas/Customer' }
+        sessionEvents: { type: array, items: { $ref: '#/components/schemas/SessionEvent' } }
+        results: { type: array, items: { $ref: '#/components/schemas/TransactionResult' } }
+
+    # ----- dashboard
+    DashboardMetrics:
+      type: object
+      required: [from, to, decisions, verdicts, latencyMs, degradedRate, activeModel, alerts]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        decisions: { type: integer, minimum: 0 }
+        verdicts:
+          type: object
+          required: [APPROVE, REVIEW, BLOCK]
+          properties:
+            APPROVE: { type: integer, minimum: 0 }
+            REVIEW: { type: integer, minimum: 0 }
+            BLOCK: { type: integer, minimum: 0 }
+        latencyMs:
+          type: object
+          required: [p50, p95, p99]
+          properties:
+            p50: { type: integer }
+            p95: { type: integer }
+            p99: { type: integer }
+        degradedRate: { type: number, minimum: 0, maximum: 1 }
+        openCases: { type: integer, minimum: 0 }
+        activeModel: { oneOf: [ { $ref: '#/components/schemas/ModelVersion' }, { type: 'null' } ] }
+        alerts:
+          type: array
+          items:
+            type: object
+            required: [type, message, at]
+            properties:
+              type: { type: string, enum: [QUALITY_GATE_FAILED, SCORING_UNAVAILABLE, REDIS_UNAVAILABLE] }
+              message: { type: string }
+              at: { type: string, format: date-time }
