@@ -23,6 +23,7 @@ Orchestration (`docker-compose`, configuration) and the **shared source of truth
 - Contract or model changes affect other repos: list the affected repos in the PR template.
 - Never commit `data/02_references/` (third-party papers under copyright) or any dataset file. The Sparkov dataset is downloaded by the `scoring-service` script (`docs/data.md`).
 - Never commit secrets: only `.env.example`, never `.env`.
+- `docker-compose.yml` is the integration contract between repos (ports, env variables, the scoring image's `seed` command; see README "What each sibling repo must provide"). Changing it affects the other repos: say so in the PR. Pin image versions; never use `latest`. Check with `docker compose --env-file .env.example config` before opening the PR.
 - Do not modify files in the sibling repos from here; they have their own PRs.
 
 ## Skills
