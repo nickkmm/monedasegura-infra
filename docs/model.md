@@ -245,7 +245,7 @@ The customer–device relationship has no table of its own: it is derived from `
 | | `version` | varchar(20) | `v1`, `v2`… |
 | | `trigger` | varchar(20) | `SCHEDULED` (daily job) or `MANUAL` ("Retrain now" button) |
 | | `algorithm` | varchar(30) | `LIGHTGBM` |
-| | `metrics_json` | jsonb | PR-AUC, precision, recall |
+| | `metrics_json` | jsonb | PR-AUC, precision, recall and `featureImportance` (gain share per feature in `docs/features.md`, sums to 1) |
 | | `status` | varchar(20) | `CANDIDATE`, `ACTIVE`, `RETIRED`; exactly one `ACTIVE`. Activated automatically only if it passes the quality gate (§8); otherwise it stays `CANDIDATE` and a `DATA_SCIENTIST` may activate it manually |
 | | `trained_at` | timestamptz | |
 
