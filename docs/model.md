@@ -222,7 +222,7 @@ Classic RBAC: a user has roles and a role has permissions. Code **never checks a
 | | `longitude` | double precision | |
 | | `counterparty` | varchar(120) | merchant or destination account |
 | | `source` | varchar(20) | `SEED_DATASET` (loaded from Sparkov) or `SIMULATOR` (generated live) |
-| | `scenario` | varchar(20) | known ground truth: `NORMAL`, `DATASET_FRAUD` (Sparkov card fraud), `ORIGINATION`, `ATO`; **never** sent to the model as a feature, only used as a training label and for measuring |
+| | `scenario` | varchar(20) | known ground truth: `NORMAL`, `DATASET_FRAUD` (Sparkov card fraud), `CARD_FRAUD` (simulated card fraud), `ORIGINATION`, `ATO`; **never** sent to the model as a feature, only used as a training label and for measuring |
 | | `occurred_at` | timestamptz | index (`customer_id`, `occurred_at`) |
 
 The customer–device relationship has no table of its own: it is derived from `transaction` and `session_event` (features `is_new_device`, `customers_on_device`).
@@ -245,7 +245,7 @@ The customer–device relationship has no table of its own: it is derived from `
 | | `version` | varchar(20) | `v1`, `v2`… |
 | | `trigger` | varchar(20) | `SCHEDULED` (daily job) or `MANUAL` ("Retrain now" button) |
 | | `algorithm` | varchar(30) | `LIGHTGBM` |
-| | `metrics_json` | jsonb | PR-AUC, precision, recall |
+| | `metrics_json` | jsonb | PR-AUC, precision, recall and `featureImportance` (gain share per feature in `docs/features.md`, sums to 1) |
 | | `status` | varchar(20) | `CANDIDATE`, `ACTIVE`, `RETIRED`; exactly one `ACTIVE`. Activated automatically only if it passes the quality gate (§8); otherwise it stays `CANDIDATE` and a `DATA_SCIENTIST` may activate it manually |
 | | `trained_at` | timestamptz | |
 

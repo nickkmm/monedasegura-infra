@@ -271,7 +271,7 @@ components:
 
     Metrics:
       type: object
-      required: [prAuc, precision, recall, rows, positives]
+      required: [prAuc, precision, recall, rows, positives, featureImportance]
       properties:
         prAuc: { type: number, minimum: 0, maximum: 1 }
         rocAuc: { type: number, minimum: 0, maximum: 1 }
@@ -279,6 +279,11 @@ components:
         recall: { type: number, minimum: 0, maximum: 1, description: At a 0.5 threshold on the validation split. }
         rows: { type: integer, minimum: 0 }
         positives: { type: integer, minimum: 0 }
+        featureImportance:
+          type: object
+          description: Gain share of each feature (names from `docs/features.md`); values sum to 1.
+          additionalProperties: { type: number, minimum: 0, maximum: 1 }
+          example: { amount_vs_avg_30d: 0.31, is_new_device: 0.24, tx_count_1h: 0.19 }
 
     TrainedModel:
       type: object

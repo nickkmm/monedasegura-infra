@@ -794,7 +794,7 @@ components:
     DecisionKind: { type: string, enum: [ORIGINAL, REEVALUATION] }
     TransactionType: { type: string, enum: [DEBIT, CREDIT, TRANSFER, BALANCE_QUERY] }
     TransactionSource: { type: string, enum: [SEED_DATASET, SIMULATOR] }
-    Scenario: { type: string, enum: [NORMAL, DATASET_FRAUD, ORIGINATION, ATO] }
+    Scenario: { type: string, enum: [NORMAL, DATASET_FRAUD, CARD_FRAUD, ORIGINATION, ATO] }
     SessionEventType: { type: string, enum: [LOGIN_OK, LOGIN_FAILED, PASSWORD_CHANGED, DEVICE_REGISTERED] }
     CaseStatus: { type: string, enum: [OPEN, IN_REVIEW, RESOLVED] }
     CaseLabel: { type: string, enum: [CONFIRMED_FRAUD, DISMISSED] }
@@ -1139,11 +1139,16 @@ components:
         status: { $ref: '#/components/schemas/ModelStatus' }
         metrics:
           type: object
-          required: [prAuc, precision, recall]
+          required: [prAuc, precision, recall, featureImportance]
           properties:
             prAuc: { type: number }
             precision: { type: number }
             recall: { type: number }
+            featureImportance:
+              type: object
+              description: Gain share of each feature (names from `docs/features.md`); values sum to 1. Shown on the Models screen.
+              additionalProperties: { type: number, minimum: 0, maximum: 1 }
+              example: { amount_vs_avg_30d: 0.31, is_new_device: 0.24, tx_count_1h: 0.19 }
         qualityGate:
           type: object
           description: Result of the automatic gate (`docs/model.md` §8).
