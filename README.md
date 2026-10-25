@@ -24,12 +24,14 @@ docs/                     Shared source of truth for the 4 repos
   data.md                 Data sources: colombianized Sparkov + simulator
   architecture.md         Source of the architecture diagrams
   diagrams/               architecture-decision-path.svg, architecture-background.svg (arch-svg skill)
-  api/                    OpenAPI contracts (pending)
+  features.md             Feature catalog (single source for Spring, rules, Python and the app)
+  api/                    OpenAPI contracts: decision-api.yaml (app → Spring), scoring-api.yaml (Spring → Python)
 data/                     Source material: challenge, course instructions, paper and poster
                           (third-party SLR papers are never published)
 .agents/skills/           Agent skills (Claude Code and Antigravity)
 .claude/skills            Symlink to .agents/skills
 AGENTS.md / CLAUDE.md     Instructions for coding agents
+redocly.yaml              Lint config for the OpenAPI contracts
 ```
 
 ## Agent skills

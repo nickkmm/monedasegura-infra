@@ -18,6 +18,8 @@ Orchestration (`docker-compose`, configuration) and the **shared source of truth
 ## Rules for this repo
 - `docs/model.md` is the only source for the data model. If you change it, regenerate `docs/erd.svg` with the `erd-svg` skill in the same PR.
 - `docs/architecture.md` is the only source for the architecture diagrams. If you change it, regenerate `docs/diagrams/` with the `arch-svg` skill in the same PR.
+- `docs/features.md` is the only source for feature names. A feature change also updates `Features` in `docs/api/scoring-api.yaml` in the same PR.
+- `docs/api/*.yaml` are the contracts between repos (OpenAPI 3.1). Before opening a PR that touches them, run `npx @redocly/cli@1.34.0 lint` from the repo root; it must report no errors.
 - Contract or model changes affect other repos: list the affected repos in the PR template.
 - Never commit `data/02_references/` (third-party papers under copyright) or any dataset file. The Sparkov dataset is downloaded by the `scoring-service` script (`docs/data.md`).
 - Never commit secrets: only `.env.example`, never `.env`.
