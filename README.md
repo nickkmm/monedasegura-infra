@@ -84,6 +84,40 @@ The compose file is the integration contract between repos:
 | `monedasegura-scoring-service` | A `Dockerfile` at the repo root; by default serves the API on `8000` (`docs/api/scoring-api.yaml`); the command `seed` runs the seed job (`docs/data.md`) using `DATABASE_URL` and the `SEED_*` / `USD_TO_COP` variables; stores models in `MODEL_DIR`. |
 | `monedasegura-app` | A `Dockerfile` at the repo root that builds Flutter web and serves it on port `80`; reads `API_BASE_URL`. |
 
+## Deployment
+
+One VM runs the same `docker-compose.yml` (`docs/MVP_PLAN.md` §4). Every merge to `main` in any of the four repos deploys automatically:
+
+```
+merge to main → .github/workflows/deploy.yml → SSH to the server → scripts/deploy.sh
+                                                                    (all four repos to the latest main,
+                                                                     docker compose --profile apps up -d --build)
+```
+
+### One-time server setup
+
+```bash
+# on the server (Docker and git installed)
+mkdir SecureMoney && cd SecureMoney
+git clone https://github.com/nickkmm/monedasegura-infra.git
+sh monedasegura-infra/scripts/bootstrap-workspace.sh
+cp monedasegura-infra/.env.example monedasegura-infra/.env   # then set real secrets; it stays on the server
+sh monedasegura-infra/scripts/deploy.sh                      # first deploy
+docker compose -f monedasegura-infra/docker-compose.yml --profile seed run --rm seed-job   # load the seed once
+```
+
+Then create an SSH key used only for deploying, add its public half to `~/.ssh/authorized_keys` on the server, and add these **repository secrets** in each of the four repos (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|---|---|
+| `DEPLOY_HOST` | server IP or host name |
+| `DEPLOY_USER` | SSH user on the server |
+| `DEPLOY_SSH_KEY` | the private deploy key |
+| `DEPLOY_KNOWN_HOSTS` | output of `ssh-keyscan <host>` (pins the server's host key) |
+| `DEPLOY_PATH` | optional: workspace folder on the server, relative to the user's home (default `SecureMoney`) |
+
+Until these secrets exist, the deploy job skips without failing. To redeploy by hand: Actions → deploy → Run workflow, or run `sh scripts/deploy.sh` on the server.
+
 ## Agent skills
 
 | Skill | What it does |
