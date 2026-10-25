@@ -137,12 +137,21 @@ feature/<task>  ──PR──►  develop  ──PR (Nicolás only)──►  m
 | Branch | Purpose | How a change gets in |
 |---|---|---|
 | `feature/…`, `fix/…`, `docs/…` | work in progress; one branch per task | free commits |
-| `develop` (default branch) | team integration | PR with **1 approval from any teammate** |
-| `main` | stable: what is shown and deployed | `develop → main` PR with **Nicolás's approval** (`CODEOWNERS`) |
+| `develop` (default branch) | team integration | PR with **1 approval from any teammate**; GitHub requests the repo owners (`CODEOWNERS`) |
+| `main` | stable: what is shown and deployed | `develop → main` PR **merged by Nicolás**: a ruleset lets only repo admins update `main` |
 
 - Nobody, person or agent, pushes directly to `develop` or `main`: GitHub rejects it.
 - Work PRs always target `develop`. Only Nicolás opens and merges `develop → main`.
-- Once each repo has code, its **GitHub Actions** (build + tests + lint) become required checks for `develop` and `main`.
+- The required check `ci` (build + tests + lint) must pass on every PR to `develop` and `main`.
+
+| Repo | Owners (`CODEOWNERS`) | Write access |
+|---|---|---|
+| `monedasegura-infra` | Nicolás (`@nickkmm`) | everyone (contract and model changes start here) |
+| `monedasegura-decision-service` | Nicolás (`@nickkmm`) | Nicolás |
+| `monedasegura-scoring-service` | Nicholas (`@NSP2007`), Laura (`@LauCZ41`) | Nicholas, Laura |
+| `monedasegura-app` | Juan José (`@Jujoroco06`), Santiago (`@Gomaxd11`) | Juan José, Santiago |
+
+All repos are public, so everyone can read all of them.
 
 ## Collaboration rules
 
