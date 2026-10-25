@@ -1,0 +1,62 @@
+name: deploy
+
+# Runs scripts/deploy.sh on the server over SSH.
+# - In this repo: on every push to `main`.
+# - In the other three repos: their own deploy.yml calls this workflow
+#   (`uses: nickkmm/monedasegura-infra/.github/workflows/deploy.yml@main`, `secrets: inherit`).
+# Until the DEPLOY_* secrets exist in a repo, the job skips without failing.
+
+on:
+  push:
+    branches: [main]
+  workflow_call:
+    secrets:
+      DEPLOY_HOST:
+        required: false
+      DEPLOY_USER:
+        required: false
+      DEPLOY_SSH_KEY:
+        required: false
+      DEPLOY_KNOWN_HOSTS:
+        required: false
+      DEPLOY_PATH:
+        required: false
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+    steps:
+      - name: Check the server is configured
+        id: configured
+        run: |
+          if [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ] || [ -z "$DEPLOY_SSH_KEY" ] || [ -z "$DEPLOY_KNOWN_HOSTS" ]; then
+            echo "::notice::No deploy server configured (DEPLOY_* secrets missing); skipping."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up SSH
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          WORKSPACE="${DEPLOY_PATH:-SecureMoney}"
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$WORKSPACE/monedasegura-infra' && git fetch --quiet origin main && git checkout --quiet main && git merge --quiet --ff-only origin/main && sh scripts/deploy.sh"

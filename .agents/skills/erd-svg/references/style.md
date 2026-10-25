@@ -2,15 +2,16 @@
 
 ## Canvas
 
-- `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 HEIGHT" role="img">`, with `<title>` and `<desc>`.
-- Background: `<rect width="960" height="HEIGHT" rx="16" fill="#FBFBFD"/>`.
+- `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 WIDTH HEIGHT" role="img">`, with `<title>` and `<desc>`.
+- Background: `<rect width="WIDTH" height="HEIGHT" rx="16" fill="#FBFBFD"/>`.
 - Title at x=32, y=44, 20 px, bold, color `#161A26`. Subtitle at x=32, y=66, 13 px, color `#79809A`.
 - Text font: `ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif`.
 - Table and attribute font: `ui-monospace, Menlo, Consolas, monospace`, 13 px, color `#161A26`.
 
 ## Grid
 
-- Four columns. Each table's x is 32, 272, 512 or 752. All are 176 wide.
+- COLS columns (4 by default). Column i (the first is 0) has x = 32 + 240 × i; every table is 176 wide. WIDTH = 240 × COLS (960 with four columns).
+- The diagram should be **wider than tall**. With more than about eight tables, pick the number of columns (5–7) and the rows that give the lowest HEIGHT while every relationship stays between neighbors; put tall tables in the same row when you can. Cells may stay empty.
 - The first row of tables starts at y=88.
 - With more than four tables, the next row starts 64 px below the tallest table of the previous row.
 - HEIGHT = where the last row ends + 48.
@@ -52,13 +53,13 @@ Between a table and the one right below it, the line is vertical through the col
 
 ## One to zero-or-one
 
-A bar at both ends (no crow's foot). Label `1` on the mandatory side and `0..1` on the optional one. If the "one" side of a 1:N relationship is optional (nullable FK), its label is `0..1` instead of `1`.
+A bar at both ends (no crow's foot). Label `1` on the mandatory side and `0..1` on the optional one. On a vertical line, a `0..1` label goes at x = column center + 26 so it does not touch the bar. If the "one" side of a 1:N relationship is optional (nullable FK), its label is `0..1` instead of `1`.
 
 ## Routed relationship
 
 When no order keeps every relationship between neighbors:
 
-- It leaves the bottom edge of the "one" table through its column center, goes down to 28 px below the lowest table in the diagram, right to x = 952, up to LY of the "many" table (Y + 76) and enters through its right edge.
+- It leaves the bottom edge of the "one" table through its column center, goes down to 28 px below the lowest table in the diagram, right to x = WIDTH − 8, up to LY of the "many" table (Y + 76) and enters through its right edge. So the "one" table has no table below it, and the "many" table is in the last column.
 - Bar of the "one" side 14 px from its table; 24 px crow's foot at the entry.
 - HEIGHT grows by 28 px to make room for the channel.
 
