@@ -1,0 +1,18 @@
+# System
+.DS_Store
+.Rhistory
+
+# Office lock files
+~$*
+
+# Secrets and local config
+.env
+*.local
+.claude/settings.local.json
+
+# Editors
+.idea/
+.vscode/
+
+# Third-party papers (copyright): local only
+data/02_references/
