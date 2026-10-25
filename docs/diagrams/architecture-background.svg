@@ -1,0 +1,91 @@
+<svg id="archBackground" viewBox="0 0 1056 720" role="img" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif">
+<title id="archBackground-t">MonedaSegura MVP: background flows</title><desc id="archBackground-d">A: decision-api publishes every decision to Kafka; the re-evaluator consumes it and re-decides degraded decisions through decision-api. B: at 02:00 the retrainer reads labeled cases from Postgres and calls scoring-api /retrain, which saves the new model. C: the seed-job downloads Sparkov and loads it into Postgres once.</desc>
+<style>
+#archBackground .mono{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace}
+#archBackground .nn{font-size:14px;font-weight:700}
+#archBackground .tech{font-size:12px;fill:#556074}
+#archBackground .bd{font-size:10.5px;font-weight:700;fill:#fff;letter-spacing:.04em}
+#archBackground .zl{font-size:11.5px;font-weight:700;fill:#79809A;letter-spacing:.06em}
+#archBackground .el{font-size:11.5px;fill:#556074}
+#archBackground .st{font-size:11px;font-weight:700;fill:#fff}
+#archBackground .lg{font-size:12px;fill:#556074}
+</style>
+<defs><marker id="archBackground-a-sync" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#161A26"/></marker><marker id="archBackground-a-async" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#556074"/></marker><marker id="archBackground-a-contingency" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#B42318"/></marker></defs>
+<rect width="1056" height="720" rx="16" fill="#FBFBFD"/>
+<text x="32" y="44" font-size="20" font-weight="700" fill="#161A26">MonedaSegura MVP: background flows</text>
+<text x="32" y="66" font-size="13" fill="#79809A">Flows off the critical path: nobody waits for them. Each band is one flow, read left to right.</text>
+<rect x="16" y="88" width="752" height="124" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
+<text class="zl" x="32" y="110">A · RE-EVALUATION (DECISION-SERVICE)</text>
+<rect x="16" y="288" width="1024" height="124" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
+<text class="zl" x="32" y="310">B · DAILY RETRAINING AT 02:00</text>
+<rect x="16" y="488" width="752" height="124" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
+<text class="zl" x="32" y="510">C · INITIAL SEED (RUNS ONCE)</text>
+<g><rect x="32" y="124" width="176" height="72" rx="10" fill="#EEF1FF" stroke="#A9B4F2" stroke-width="1.5"/>
+<rect x="44" y="138" width="34" height="18" rx="9" fill="#4453C9"/><text class="bd" x="61" y="147" text-anchor="middle" dy="0.35em">API</text>
+<text class="mono nn" x="86" y="147" dy="0.35em" style="fill:#4453C9">decision-api</text>
+<text class="tech" x="44" y="178">Spring · rule engine</text></g>
+<g><rect x="304" y="124" width="176" height="72" rx="10" fill="#FFF3DC" stroke="#F0C572" stroke-width="1.5"/>
+<rect x="316" y="138" width="34" height="18" rx="9" fill="#A96C05"/><text class="bd" x="333" y="147" text-anchor="middle" dy="0.35em">BUS</text>
+<text class="mono nn" x="358" y="147" dy="0.35em" style="fill:#A96C05">kafka</text>
+<text class="tech" x="316" y="178">Kafka · topic decisions</text></g>
+<g><rect x="576" y="124" width="176" height="72" rx="10" fill="#EEF1FF" stroke="#A9B4F2" stroke-width="1.5"/>
+<rect x="588" y="138" width="34" height="18" rx="9" fill="#4453C9"/><text class="bd" x="605" y="147" text-anchor="middle" dy="0.35em">API</text>
+<text class="mono nn" x="630" y="147" dy="0.35em" style="fill:#4453C9">re-evaluator</text>
+<text class="tech" x="588" y="178">Spring @KafkaListener</text></g>
+<g><rect x="32" y="324" width="176" height="72" rx="10" fill="#E3F6F3" stroke="#86D3CA" stroke-width="1.5"/>
+<rect x="44" y="338" width="34" height="18" rx="9" fill="#0F8478"/><text class="bd" x="61" y="347" text-anchor="middle" dy="0.35em">DB</text>
+<text class="mono nn" x="86" y="347" dy="0.35em" style="fill:#0F8478">postgres</text>
+<text class="tech" x="44" y="378">PostgreSQL · labeled cases</text></g>
+<g><rect x="304" y="324" width="176" height="72" rx="10" fill="#EEF1FF" stroke="#A9B4F2" stroke-width="1.5"/>
+<rect x="316" y="338" width="34" height="18" rx="9" fill="#4453C9"/><text class="bd" x="333" y="347" text-anchor="middle" dy="0.35em">API</text>
+<text class="mono nn" x="358" y="347" dy="0.35em" style="fill:#4453C9">retrainer</text>
+<text class="tech" x="316" y="378">Spring @Scheduled 02:00</text></g>
+<g><rect x="576" y="324" width="176" height="72" rx="10" fill="#EEF1FF" stroke="#A9B4F2" stroke-width="1.5"/>
+<rect x="588" y="338" width="34" height="18" rx="9" fill="#4453C9"/><text class="bd" x="605" y="347" text-anchor="middle" dy="0.35em">API</text>
+<text class="mono nn" x="630" y="347" dy="0.35em" style="fill:#4453C9">scoring-api</text>
+<text class="tech" x="588" y="378">FastAPI · trains LightGBM</text></g>
+<g><rect x="848" y="324" width="176" height="72" rx="10" fill="#E3F6F3" stroke="#86D3CA" stroke-width="1.5"/>
+<rect x="860" y="338" width="34" height="18" rx="9" fill="#0F8478"/><text class="bd" x="877" y="347" text-anchor="middle" dy="0.35em">DB</text>
+<text class="mono nn" x="902" y="347" dy="0.35em" style="fill:#0F8478">models</text>
+<text class="tech" x="860" y="378">Volume · model files</text></g>
+<g><rect x="32" y="524" width="176" height="72" rx="10" fill="#F4EBFF" stroke="#C9A6EE" stroke-width="1.5"/>
+<rect x="44" y="538" width="34" height="18" rx="9" fill="#7439B8"/><text class="bd" x="61" y="547" text-anchor="middle" dy="0.35em">EXT</text>
+<text class="mono nn" x="86" y="547" dy="0.35em" style="fill:#7439B8">sparkov</text>
+<text class="tech" x="44" y="578">Kaggle · Sparkov (CC0)</text></g>
+<g><rect x="304" y="524" width="176" height="72" rx="10" fill="#EEF1FF" stroke="#A9B4F2" stroke-width="1.5"/>
+<rect x="316" y="538" width="34" height="18" rx="9" fill="#4453C9"/><text class="bd" x="333" y="547" text-anchor="middle" dy="0.35em">API</text>
+<text class="mono nn" x="358" y="547" dy="0.35em" style="fill:#4453C9">seed-job</text>
+<text class="tech" x="316" y="578">Python · colombianizes</text></g>
+<g><rect x="576" y="524" width="176" height="72" rx="10" fill="#E3F6F3" stroke="#86D3CA" stroke-width="1.5"/>
+<rect x="588" y="538" width="34" height="18" rx="9" fill="#0F8478"/><text class="bd" x="605" y="547" text-anchor="middle" dy="0.35em">DB</text>
+<text class="mono nn" x="630" y="547" dy="0.35em" style="fill:#0F8478">postgres</text>
+<text class="tech" x="588" y="578">PostgreSQL · same DB</text></g>
+<path d="M208,160 H304" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archBackground-a-async)"/>
+<text class="el" x="256.0" y="148" text-anchor="middle" dy="0.35em">publishes</text>
+<path d="M480,160 H576" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archBackground-a-async)"/>
+<text class="el" x="528.0" y="148" text-anchor="middle" dy="0.35em">consumes</text>
+<path d="M664,196 V224 H120 V196" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archBackground-a-sync)"/>
+<text class="el" x="392.0" y="238" text-anchor="middle" dy="0.35em">re-decides degraded</text>
+<path d="M304,360 H208" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archBackground-a-sync)"/>
+<text class="el" x="256.0" y="348" text-anchor="middle" dy="0.35em">reads labels</text>
+<path d="M480,360 H576" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archBackground-a-sync)"/>
+<text class="el" x="528.0" y="348" text-anchor="middle" dy="0.35em">/retrain</text>
+<path d="M752,360 H848" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archBackground-a-sync)"/>
+<text class="el" x="800.0" y="348" text-anchor="middle" dy="0.35em">saves</text>
+<path d="M208,560 H304" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archBackground-a-async)"/>
+<text class="el" x="256.0" y="548" text-anchor="middle" dy="0.35em">download</text>
+<path d="M480,560 H576" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archBackground-a-async)"/>
+<text class="el" x="528.0" y="548" text-anchor="middle" dy="0.35em">load</text>
+<path d="M32,656 H72" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archBackground-a-sync)"/>
+<text class="lg" x="82" y="656" dy="0.35em">sync: request someone waits for</text>
+<path d="M310.4,656 H350.4" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archBackground-a-async)"/>
+<text class="lg" x="360.4" y="656" dy="0.35em">async: event or batch load</text>
+<rect x="32" y="677" width="34" height="18" rx="9" fill="#4453C9"/><text class="bd" x="49" y="686" text-anchor="middle" dy="0.35em">API</text>
+<text class="lg" x="74" y="686" dy="0.35em">own service or job</text>
+<rect x="220.8" y="677" width="34" height="18" rx="9" fill="#0F8478"/><text class="bd" x="237.8" y="686" text-anchor="middle" dy="0.35em">DB</text>
+<text class="lg" x="262.8" y="686" dy="0.35em">database / cache / files</text>
+<rect x="449.2" y="677" width="34" height="18" rx="9" fill="#A96C05"/><text class="bd" x="466.2" y="686" text-anchor="middle" dy="0.35em">BUS</text>
+<text class="lg" x="491.2" y="686" dy="0.35em">messaging</text>
+<rect x="578.6" y="677" width="34" height="18" rx="9" fill="#7439B8"/><text class="bd" x="595.6" y="686" text-anchor="middle" dy="0.35em">EXT</text>
+<text class="lg" x="620.6" y="686" dy="0.35em">external system</text>
+</svg>
