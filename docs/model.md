@@ -222,7 +222,7 @@ Classic RBAC: a user has roles and a role has permissions. Code **never checks a
 | | `longitude` | double precision | |
 | | `counterparty` | varchar(120) | merchant or destination account |
 | | `source` | varchar(20) | `SEED_DATASET` (loaded from Sparkov) or `SIMULATOR` (generated live) |
-| | `scenario` | varchar(20) | known ground truth: `NORMAL`, `DATASET_FRAUD` (Sparkov card fraud), `ORIGINATION`, `ATO`; **never** sent to the model as a feature, only used as a training label and for measuring |
+| | `scenario` | varchar(20) | known ground truth: `NORMAL`, `DATASET_FRAUD` (Sparkov card fraud), `CARD_FRAUD` (simulated card fraud), `ORIGINATION`, `ATO`; **never** sent to the model as a feature, only used as a training label and for measuring |
 | | `occurred_at` | timestamptz | index (`customer_id`, `occurred_at`) |
 
 The customer–device relationship has no table of its own: it is derived from `transaction` and `session_event` (features `is_new_device`, `customers_on_device`).

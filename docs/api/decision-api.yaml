@@ -794,7 +794,7 @@ components:
     DecisionKind: { type: string, enum: [ORIGINAL, REEVALUATION] }
     TransactionType: { type: string, enum: [DEBIT, CREDIT, TRANSFER, BALANCE_QUERY] }
     TransactionSource: { type: string, enum: [SEED_DATASET, SIMULATOR] }
-    Scenario: { type: string, enum: [NORMAL, DATASET_FRAUD, ORIGINATION, ATO] }
+    Scenario: { type: string, enum: [NORMAL, DATASET_FRAUD, CARD_FRAUD, ORIGINATION, ATO] }
     SessionEventType: { type: string, enum: [LOGIN_OK, LOGIN_FAILED, PASSWORD_CHANGED, DEVICE_REGISTERED] }
     CaseStatus: { type: string, enum: [OPEN, IN_REVIEW, RESOLVED] }
     CaseLabel: { type: string, enum: [CONFIRMED_FRAUD, DISMISSED] }
