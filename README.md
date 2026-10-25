@@ -24,65 +24,13 @@ docs/                     Shared source of truth for the 4 repos
   data.md                 Data sources: colombianized Sparkov + simulator
   architecture.md         Source of the architecture diagrams
   diagrams/               architecture-decision-path.svg, architecture-background.svg (arch-svg skill)
-  features.md             Feature catalog (single source for Spring, rules, Python and the app)
-  api/                    OpenAPI contracts: decision-api.yaml (app → Spring), scoring-api.yaml (Spring → Python)
+  api/                    OpenAPI contracts (pending)
 data/                     Source material: challenge, course instructions, paper and poster
                           (third-party SLR papers are never published)
 .agents/skills/           Agent skills (Claude Code and Antigravity)
 .claude/skills            Symlink to .agents/skills
 AGENTS.md / CLAUDE.md     Instructions for coding agents
-redocly.yaml              Lint config for the OpenAPI contracts
-scripts/                  bootstrap-workspace.sh: clones the 4 repos as siblings
-.github/workflows/ci.yml  CI: no forbidden files, contract lint, compose validation and smoke test
-docker-compose.yml        Local stack (profiles: default infra, apps, seed, tools)
-.env.example              Template for .env (never commit .env)
 ```
-
-## Running locally
-
-The repos do not reference each other through git: they rely on being **sibling folders**. Set up the workspace once:
-
-```bash
-mkdir SecureMoney && cd SecureMoney
-git clone https://github.com/nickkmm/monedasegura-infra.git
-sh monedasegura-infra/scripts/bootstrap-workspace.sh   # clones the other three next to it
-```
-
-```bash
-# workspace layout
-SecureMoney/
-├── monedasegura-infra/               # this repo
-├── monedasegura-decision-service/    # needed for --profile apps
-├── monedasegura-scoring-service/     # needed for --profile apps / seed
-└── monedasegura-app/                 # needed for --profile apps
-
-cd monedasegura-infra
-cp .env.example .env                               # then change the secrets
-docker compose up -d                               # postgres, redis, kafka (+ creates topic `decisions`)
-docker compose --profile apps up -d --build        # + the three services
-docker compose --profile seed run --rm seed-job    # load the Sparkov seed once
-docker compose --profile tools up -d               # + kafka-ui on http://localhost:8081
-docker compose down                                # stop (add -v to wipe the database)
-```
-
-| Service | Inside compose | From your machine |
-|---|---|---|
-| postgres | `postgres:5432` | `localhost:5432` |
-| redis | `redis:6379` | `localhost:6379` |
-| kafka | `kafka:9092` | `localhost:9094` |
-| decision-service | `decision-service:8080` | `http://localhost:8080/api/v1` |
-| scoring-service | `scoring-service:8000` | `http://localhost:8000` |
-| app (Flutter web) | — | `http://localhost:3000` |
-
-### What each sibling repo must provide
-
-The compose file is the integration contract between repos:
-
-| Repo | Must provide |
-|---|---|
-| `monedasegura-decision-service` | A `Dockerfile` at the repo root; the app listens on `8080` with base path `/api/v1` (`docs/api/decision-api.yaml`); reads the `SPRING_*`, `SCORING_SERVICE_*` and `JWT_SECRET` variables; owns the database schema (migrations). |
-| `monedasegura-scoring-service` | A `Dockerfile` at the repo root; by default serves the API on `8000` (`docs/api/scoring-api.yaml`); the command `seed` runs the seed job (`docs/data.md`) using `DATABASE_URL` and the `SEED_*` / `USD_TO_COP` variables; stores models in `MODEL_DIR`. |
-| `monedasegura-app` | A `Dockerfile` at the repo root that builds Flutter web and serves it on port `80`; reads `API_BASE_URL`. |
 
 ## Agent skills
 

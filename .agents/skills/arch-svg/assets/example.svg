@@ -1,0 +1,98 @@
+<svg id="archEjemplo" viewBox="0 0 1056 516" role="img" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif">
+<title id="archEjemplo-t">Architecture diagram example</title>
+<desc id="archEjemplo-d">A Flutter app calls booking-api; the API stores in postgres, charges through an external gateway, publishes events to kafka for a notifier that sends mail, and uses a cache as contingency.</desc>
+<style>
+#archEjemplo .mono{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace}
+#archEjemplo .nn{font-size:14px;font-weight:700}
+#archEjemplo .tech{font-size:12px;fill:#556074}
+#archEjemplo .bd{font-size:10.5px;font-weight:700;fill:#fff;letter-spacing:.04em}
+#archEjemplo .zl{font-size:11.5px;font-weight:700;fill:#79809A;letter-spacing:.06em}
+#archEjemplo .el{font-size:11.5px;fill:#556074}
+#archEjemplo .st{font-size:11px;font-weight:700;fill:#fff}
+#archEjemplo .lg{font-size:12px;fill:#556074}
+</style>
+<defs><marker id="archEjemplo-a-sync" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#161A26"/></marker><marker id="archEjemplo-a-async" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#556074"/></marker><marker id="archEjemplo-a-contingency" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#B42318"/></marker></defs>
+<rect width="1056" height="516" rx="16" fill="#FBFBFD"/>
+<text x="32" y="44" font-size="20" font-weight="700" fill="#161A26">Example: court booking</text>
+<text x="32" y="66" font-size="13" fill="#79809A">Each box is a component; each arrow is a connection. Numbers follow the path the user waits for.</text>
+<rect x="16" y="88" width="208" height="324" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
+<text class="zl" x="32" y="110">CLIENT</text>
+<rect x="288" y="88" width="480" height="324" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
+<text class="zl" x="304" y="110">BACKEND</text>
+<rect x="832" y="88" width="208" height="324" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
+<text class="zl" x="848" y="110">EXTERNAL</text>
+
+<g><rect x="32" y="124" width="176" height="72" rx="10" fill="#F4EBFF" stroke="#C9A6EE" stroke-width="1.5"/>
+<rect x="44" y="138" width="34" height="18" rx="9" fill="#7439B8"/><text class="bd" x="61" y="147" text-anchor="middle" dy="0.35em">APP</text>
+<text class="mono nn" x="86" y="147" dy="0.35em" style="fill:#7439B8">app</text>
+<text class="tech" x="44" y="178">Flutter</text></g>
+
+<g><rect x="304" y="124" width="176" height="72" rx="10" fill="#EEF1FF" stroke="#A9B4F2" stroke-width="1.5"/>
+<rect x="316" y="138" width="34" height="18" rx="9" fill="#4453C9"/><text class="bd" x="333" y="147" text-anchor="middle" dy="0.35em">API</text>
+<text class="mono nn" x="358" y="147" dy="0.35em" style="fill:#4453C9">booking-api</text>
+<text class="tech" x="316" y="178">Spring Boot</text></g>
+
+<g><rect x="576" y="124" width="176" height="72" rx="10" fill="#E3F6F3" stroke="#86D3CA" stroke-width="1.5"/>
+<rect x="588" y="138" width="34" height="18" rx="9" fill="#0F8478"/><text class="bd" x="605" y="147" text-anchor="middle" dy="0.35em">DB</text>
+<text class="mono nn" x="630" y="147" dy="0.35em" style="fill:#0F8478">postgres</text>
+<text class="tech" x="588" y="178">PostgreSQL 16</text></g>
+
+<g><rect x="304" y="324" width="176" height="72" rx="10" fill="#FFF3DC" stroke="#F0C572" stroke-width="1.5"/>
+<rect x="316" y="338" width="34" height="18" rx="9" fill="#A96C05"/><text class="bd" x="333" y="347" text-anchor="middle" dy="0.35em">BUS</text>
+<text class="mono nn" x="358" y="347" dy="0.35em" style="fill:#A96C05">kafka</text>
+<text class="tech" x="316" y="378">Kafka · topic bookings</text></g>
+
+<g><rect x="576" y="324" width="176" height="72" rx="10" fill="#EEF1FF" stroke="#A9B4F2" stroke-width="1.5"/>
+<rect x="588" y="338" width="34" height="18" rx="9" fill="#4453C9"/><text class="bd" x="605" y="347" text-anchor="middle" dy="0.35em">API</text>
+<text class="mono nn" x="630" y="347" dy="0.35em" style="fill:#4453C9">notifier</text>
+<text class="tech" x="588" y="378">FastAPI worker</text></g>
+
+<g><rect x="848" y="124" width="176" height="72" rx="10" fill="#F4EBFF" stroke="#C9A6EE" stroke-width="1.5"/>
+<rect x="860" y="138" width="34" height="18" rx="9" fill="#7439B8"/><text class="bd" x="877" y="147" text-anchor="middle" dy="0.35em">EXT</text>
+<text class="mono nn" x="902" y="147" dy="0.35em" style="fill:#7439B8">gateway</text>
+<text class="tech" x="860" y="178">Payment provider</text></g>
+
+<g><rect x="848" y="324" width="176" height="72" rx="10" fill="#F4EBFF" stroke="#C9A6EE" stroke-width="1.5"/>
+<rect x="860" y="338" width="34" height="18" rx="9" fill="#7439B8"/><text class="bd" x="877" y="347" text-anchor="middle" dy="0.35em">EXT</text>
+<text class="mono nn" x="902" y="347" dy="0.35em" style="fill:#7439B8">mail</text>
+<text class="tech" x="860" y="378">SMTP</text></g>
+
+<g><rect x="32" y="324" width="176" height="72" rx="10" fill="#E3F6F3" stroke="#86D3CA" stroke-width="1.5"/>
+<rect x="44" y="338" width="34" height="18" rx="9" fill="#0F8478"/><text class="bd" x="61" y="347" text-anchor="middle" dy="0.35em">DB</text>
+<text class="mono nn" x="86" y="347" dy="0.35em" style="fill:#0F8478">cache</text>
+<text class="tech" x="44" y="378">Redis</text></g>
+
+<path d="M208,160 H304" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archEjemplo-a-sync)"/>
+<circle cx="256.0" cy="160" r="10" fill="#161A26"/><text class="st" x="256.0" y="160" text-anchor="middle" dy="0.35em">1</text>
+<text class="el" x="256.0" y="144" text-anchor="middle">REST</text>
+<path d="M480,160 H576" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archEjemplo-a-sync)"/>
+<circle cx="528.0" cy="160" r="10" fill="#161A26"/><text class="st" x="528.0" y="160" text-anchor="middle" dy="0.35em">2</text>
+<text class="el" x="528.0" y="144" text-anchor="middle">SQL</text>
+<path d="M392,196 V324" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archEjemplo-a-async)"/>
+<text class="el" x="382" y="220" dy="0.35em" text-anchor="end">booking event</text>
+<path d="M480,360 H576" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archEjemplo-a-async)"/>
+<text class="el" x="528.0" y="350" text-anchor="middle">consumes</text>
+<path d="M752,360 H848" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archEjemplo-a-async)"/>
+<text class="el" x="800.0" y="350" text-anchor="middle">SMTP</text>
+<path d="M436,196 V260 H936 V196" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archEjemplo-a-sync)"/>
+<circle cx="686.0" cy="260" r="10" fill="#161A26"/><text class="st" x="686.0" y="260" text-anchor="middle" dy="0.35em">3</text>
+<text class="el" x="686.0" y="244" text-anchor="middle">charge</text>
+<path d="M120,196 V324" fill="none" stroke="#B42318" stroke-width="1.75" stroke-dasharray="2 4" marker-end="url(#archEjemplo-a-contingency)"/>
+<text class="el" x="110" y="220" dy="0.35em" text-anchor="end">offline</text>
+<path d="M32,452 H72" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archEjemplo-a-sync)"/>
+<text class="lg" x="82" y="452" dy="0.35em">sync: request someone waits for</text>
+<path d="M314.6,452 H354.6" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archEjemplo-a-async)"/>
+<text class="lg" x="364.6" y="452" dy="0.35em">async: event</text>
+<path d="M471.8,452 H511.8" fill="none" stroke="#B42318" stroke-width="1.75" stroke-dasharray="2 4" marker-end="url(#archEjemplo-a-contingency)"/>
+<text class="lg" x="521.8" y="452" dy="0.35em">contingency: degradation path</text>
+<rect x="32" y="471" width="34" height="18" rx="9" fill="#7439B8"/><text class="bd" x="49" y="480" text-anchor="middle" dy="0.35em">APP</text>
+<text class="lg" x="74" y="480" dy="0.35em">client</text>
+<rect x="137.6" y="471" width="34" height="18" rx="9" fill="#4453C9"/><text class="bd" x="154.6" y="480" text-anchor="middle" dy="0.35em">API</text>
+<text class="lg" x="179.6" y="480" dy="0.35em">own service</text>
+<rect x="276.2" y="471" width="34" height="18" rx="9" fill="#0F8478"/><text class="bd" x="293.2" y="480" text-anchor="middle" dy="0.35em">DB</text>
+<text class="lg" x="318.2" y="480" dy="0.35em">database / cache</text>
+<rect x="447.79999999999995" y="471" width="34" height="18" rx="9" fill="#A96C05"/><text class="bd" x="464.79999999999995" y="480" text-anchor="middle" dy="0.35em">BUS</text>
+<text class="lg" x="489.79999999999995" y="480" dy="0.35em">messaging</text>
+<rect x="573.1999999999999" y="471" width="34" height="18" rx="9" fill="#7439B8"/><text class="bd" x="590.1999999999999" y="480" text-anchor="middle" dy="0.35em">EXT</text>
+<text class="lg" x="615.1999999999999" y="480" dy="0.35em">external system</text>
+</svg>

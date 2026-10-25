@@ -1,0 +1,324 @@
+<svg id="mer" viewBox="0 0 960 1584" role="img" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif">
+<title id="mer-t">MonedaSegura: entity-relationship diagram</title>
+<desc id="mer-d">Fifteen decision-service tables: RBAC access (app_user, role, permission, user_role, role_permission), customers and events (customer, device, session_event, transaction), decision and model (decision, model_version, decision_rule_hit), rules (rule, rule_version) and cases (fraud_case).</desc>
+<style>
+#mer .mono{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;font-size:13px;fill:#161A26}
+#mer .nt{font-size:14px;font-weight:700}
+#mer .lk{fill:none;stroke:#556074;stroke-width:1.75}
+#mer .card{stroke-width:1.5}
+#mer .bd{font-size:10.5px;font-weight:700;fill:#fff;letter-spacing:.04em}
+#mer .ca{font-size:13px;font-weight:700;fill:#556074}
+</style>
+<rect width="960" height="1584" rx="16" fill="#FBFBFD"/>
+<text x="32" y="44" font-size="20" font-weight="700" fill="#161A26">MonedaSegura: decision-service data model</text>
+<text x="32" y="66" font-size="13" fill="#79809A">Each box is a PostgreSQL table; each line is a relationship. Access uses RBAC: user → role → permission.</text>
+
+<g><rect class="card" x="32" y="88" width="176" height="124" rx="10" fill="#EEF1FF" stroke="#A9B4F2"/>
+<path d="M32,120 H208" stroke="#A9B4F2" stroke-width="1.5"/>
+<text class="nt mono" x="120" y="109" text-anchor="middle" style="fill:#4453C9;font-size:14px">permission</text>
+<rect x="42" y="125" width="26" height="18" rx="9" fill="#4453C9"/><text class="bd" x="55" y="134" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="78" y="134" dy="0.35em">id</text>
+<text class="mono" x="78" y="162" dy="0.35em">code</text>
+<text class="mono" x="78" y="190" dy="0.35em">description</text>
+</g>
+
+<g><rect class="card" x="272" y="88" width="176" height="208" rx="10" fill="#E3F6F3" stroke="#86D3CA"/>
+<path d="M272,120 H448" stroke="#86D3CA" stroke-width="1.5"/>
+<text class="nt mono" x="360" y="109" text-anchor="middle" style="fill:#0F8478;font-size:14px">session_event</text>
+<rect x="282" y="125" width="26" height="18" rx="9" fill="#0F8478"/><text class="bd" x="295" y="134" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="318" y="134" dy="0.35em">id</text>
+<rect x="282" y="153" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="295" y="162" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="318" y="162" dy="0.35em">customer_id</text>
+<rect x="282" y="181" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="295" y="190" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="318" y="190" dy="0.35em">device_id</text>
+<text class="mono" x="318" y="218" dy="0.35em">event_type</text>
+<text class="mono" x="318" y="246" dy="0.35em">ip_address</text>
+<text class="mono" x="318" y="274" dy="0.35em">occurred_at</text>
+</g>
+
+<g><rect class="card" x="512" y="88" width="176" height="152" rx="10" fill="#FFF3DC" stroke="#F0C572"/>
+<path d="M512,120 H688" stroke="#F0C572" stroke-width="1.5"/>
+<text class="nt mono" x="600" y="109" text-anchor="middle" style="fill:#A96C05;font-size:14px">device</text>
+<rect x="522" y="125" width="26" height="18" rx="9" fill="#A96C05"/><text class="bd" x="535" y="134" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="558" y="134" dy="0.35em">id</text>
+<text class="mono" x="558" y="162" dy="0.35em">fingerprint</text>
+<text class="mono" x="558" y="190" dy="0.35em">os</text>
+<text class="mono" x="558" y="218" dy="0.35em">first_seen_at</text>
+</g>
+
+<g><rect class="card" x="752" y="88" width="176" height="180" rx="10" fill="#F4EBFF" stroke="#C9A6EE"/>
+<path d="M752,120 H928" stroke="#C9A6EE" stroke-width="1.5"/>
+<text class="nt mono" x="840" y="109" text-anchor="middle" style="fill:#7439B8;font-size:14px">rule</text>
+<rect x="762" y="125" width="26" height="18" rx="9" fill="#7439B8"/><text class="bd" x="775" y="134" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="798" y="134" dy="0.35em">id</text>
+<text class="mono" x="798" y="162" dy="0.35em">code</text>
+<text class="mono" x="798" y="190" dy="0.35em">name</text>
+<text class="mono" x="798" y="218" dy="0.35em">description</text>
+<text class="mono" x="798" y="246" dy="0.35em">created_at</text>
+</g>
+
+<g><rect class="card" x="32" y="360" width="176" height="124" rx="10" fill="#EEF1FF" stroke="#A9B4F2"/>
+<path d="M32,392 H208" stroke="#A9B4F2" stroke-width="1.5"/>
+<text class="nt mono" x="120" y="381" text-anchor="middle" style="fill:#4453C9;font-size:14px">role_permission</text>
+<rect x="42" y="397" width="26" height="18" rx="9" fill="#4453C9"/><text class="bd" x="55" y="406" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="78" y="406" dy="0.35em">id</text>
+<rect x="42" y="425" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="55" y="434" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="78" y="434" dy="0.35em">role_id</text>
+<rect x="42" y="453" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="55" y="462" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="78" y="462" dy="0.35em">permission_id</text>
+</g>
+
+<g><rect class="card" x="272" y="360" width="176" height="264" rx="10" fill="#E3F6F3" stroke="#86D3CA"/>
+<path d="M272,392 H448" stroke="#86D3CA" stroke-width="1.5"/>
+<text class="nt mono" x="360" y="381" text-anchor="middle" style="fill:#0F8478;font-size:14px">customer</text>
+<rect x="282" y="397" width="26" height="18" rx="9" fill="#0F8478"/><text class="bd" x="295" y="406" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="318" y="406" dy="0.35em">id</text>
+<text class="mono" x="318" y="434" dy="0.35em">full_name</text>
+<text class="mono" x="318" y="462" dy="0.35em">document_number</text>
+<text class="mono" x="318" y="490" dy="0.35em">country</text>
+<text class="mono" x="318" y="518" dy="0.35em">home_city</text>
+<text class="mono" x="318" y="546" dy="0.35em">home_latitude</text>
+<text class="mono" x="318" y="574" dy="0.35em">home_longitude</text>
+<text class="mono" x="318" y="602" dy="0.35em">created_at</text>
+</g>
+
+<g><rect class="card" x="512" y="360" width="176" height="404" rx="10" fill="#FFF3DC" stroke="#F0C572"/>
+<path d="M512,392 H688" stroke="#F0C572" stroke-width="1.5"/>
+<text class="nt mono" x="600" y="381" text-anchor="middle" style="fill:#A96C05;font-size:14px">transaction</text>
+<rect x="522" y="397" width="26" height="18" rx="9" fill="#A96C05"/><text class="bd" x="535" y="406" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="558" y="406" dy="0.35em">id</text>
+<rect x="522" y="425" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="535" y="434" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="558" y="434" dy="0.35em">customer_id</text>
+<rect x="522" y="453" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="535" y="462" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="558" y="462" dy="0.35em">device_id</text>
+<text class="mono" x="558" y="490" dy="0.35em">type</text>
+<text class="mono" x="558" y="518" dy="0.35em">category</text>
+<text class="mono" x="558" y="546" dy="0.35em">amount</text>
+<text class="mono" x="558" y="574" dy="0.35em">currency</text>
+<text class="mono" x="558" y="602" dy="0.35em">latitude</text>
+<text class="mono" x="558" y="630" dy="0.35em">longitude</text>
+<text class="mono" x="558" y="658" dy="0.35em">counterparty</text>
+<text class="mono" x="558" y="686" dy="0.35em">source</text>
+<text class="mono" x="558" y="714" dy="0.35em">scenario</text>
+<text class="mono" x="558" y="742" dy="0.35em">occurred_at</text>
+</g>
+
+<g><rect class="card" x="752" y="360" width="176" height="348" rx="10" fill="#F4EBFF" stroke="#C9A6EE"/>
+<path d="M752,392 H928" stroke="#C9A6EE" stroke-width="1.5"/>
+<text class="nt mono" x="840" y="381" text-anchor="middle" style="fill:#7439B8;font-size:14px">rule_version</text>
+<rect x="762" y="397" width="26" height="18" rx="9" fill="#7439B8"/><text class="bd" x="775" y="406" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="798" y="406" dy="0.35em">id</text>
+<rect x="762" y="425" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="775" y="434" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="798" y="434" dy="0.35em">rule_id</text>
+<rect x="762" y="453" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="775" y="462" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="798" y="462" dy="0.35em">created_by_id</text>
+<rect x="762" y="481" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="775" y="490" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="798" y="490" dy="0.35em">approved_by_id</text>
+<text class="mono" x="798" y="518" dy="0.35em">version</text>
+<text class="mono" x="798" y="546" dy="0.35em">condition_json</text>
+<text class="mono" x="798" y="574" dy="0.35em">action</text>
+<text class="mono" x="798" y="602" dy="0.35em">status</text>
+<text class="mono" x="798" y="630" dy="0.35em">backtest_json</text>
+<text class="mono" x="798" y="658" dy="0.35em">created_at</text>
+<text class="mono" x="798" y="686" dy="0.35em">approved_at</text>
+</g>
+
+<g><rect class="card" x="32" y="828" width="176" height="124" rx="10" fill="#EEF1FF" stroke="#A9B4F2"/>
+<path d="M32,860 H208" stroke="#A9B4F2" stroke-width="1.5"/>
+<text class="nt mono" x="120" y="849" text-anchor="middle" style="fill:#4453C9;font-size:14px">role</text>
+<rect x="42" y="865" width="26" height="18" rx="9" fill="#4453C9"/><text class="bd" x="55" y="874" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="78" y="874" dy="0.35em">id</text>
+<text class="mono" x="78" y="902" dy="0.35em">code</text>
+<text class="mono" x="78" y="930" dy="0.35em">name</text>
+</g>
+
+<g><rect class="card" x="272" y="828" width="176" height="264" rx="10" fill="#E3F6F3" stroke="#86D3CA"/>
+<path d="M272,860 H448" stroke="#86D3CA" stroke-width="1.5"/>
+<text class="nt mono" x="360" y="849" text-anchor="middle" style="fill:#0F8478;font-size:14px">model_version</text>
+<rect x="282" y="865" width="26" height="18" rx="9" fill="#0F8478"/><text class="bd" x="295" y="874" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="318" y="874" dy="0.35em">id</text>
+<rect x="282" y="893" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="295" y="902" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="318" y="902" dy="0.35em">trained_by_id</text>
+<text class="mono" x="318" y="930" dy="0.35em">version</text>
+<text class="mono" x="318" y="958" dy="0.35em">trigger</text>
+<text class="mono" x="318" y="986" dy="0.35em">algorithm</text>
+<text class="mono" x="318" y="1014" dy="0.35em">metrics_json</text>
+<text class="mono" x="318" y="1042" dy="0.35em">status</text>
+<text class="mono" x="318" y="1070" dy="0.35em">trained_at</text>
+</g>
+
+<g><rect class="card" x="512" y="828" width="176" height="320" rx="10" fill="#FFF3DC" stroke="#F0C572"/>
+<path d="M512,860 H688" stroke="#F0C572" stroke-width="1.5"/>
+<text class="nt mono" x="600" y="849" text-anchor="middle" style="fill:#A96C05;font-size:14px">decision</text>
+<rect x="522" y="865" width="26" height="18" rx="9" fill="#A96C05"/><text class="bd" x="535" y="874" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="558" y="874" dy="0.35em">id</text>
+<rect x="522" y="893" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="535" y="902" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="558" y="902" dy="0.35em">transaction_id</text>
+<rect x="522" y="921" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="535" y="930" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="558" y="930" dy="0.35em">model_version_id</text>
+<text class="mono" x="558" y="958" dy="0.35em">kind</text>
+<text class="mono" x="558" y="986" dy="0.35em">verdict</text>
+<text class="mono" x="558" y="1014" dy="0.35em">score</text>
+<text class="mono" x="558" y="1042" dy="0.35em">degraded</text>
+<text class="mono" x="558" y="1070" dy="0.35em">features_json</text>
+<text class="mono" x="558" y="1098" dy="0.35em">latency_ms</text>
+<text class="mono" x="558" y="1126" dy="0.35em">decided_at</text>
+</g>
+
+<g><rect class="card" x="752" y="828" width="176" height="180" rx="10" fill="#F4EBFF" stroke="#C9A6EE"/>
+<path d="M752,860 H928" stroke="#C9A6EE" stroke-width="1.5"/>
+<text class="nt mono" x="840" y="849" text-anchor="middle" style="fill:#7439B8;font-size:14px">decision_rule_hit</text>
+<rect x="762" y="865" width="26" height="18" rx="9" fill="#7439B8"/><text class="bd" x="775" y="874" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="798" y="874" dy="0.35em">id</text>
+<rect x="762" y="893" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="775" y="902" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="798" y="902" dy="0.35em">decision_id</text>
+<rect x="762" y="921" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="775" y="930" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="798" y="930" dy="0.35em">rule_version_id</text>
+<text class="mono" x="798" y="958" dy="0.35em">matched</text>
+<text class="mono" x="798" y="986" dy="0.35em">shadow</text>
+</g>
+
+<g><rect class="card" x="32" y="1212" width="176" height="152" rx="10" fill="#EEF1FF" stroke="#A9B4F2"/>
+<path d="M32,1244 H208" stroke="#A9B4F2" stroke-width="1.5"/>
+<text class="nt mono" x="120" y="1233" text-anchor="middle" style="fill:#4453C9;font-size:14px">user_role</text>
+<rect x="42" y="1249" width="26" height="18" rx="9" fill="#4453C9"/><text class="bd" x="55" y="1258" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="78" y="1258" dy="0.35em">id</text>
+<rect x="42" y="1277" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="55" y="1286" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="78" y="1286" dy="0.35em">user_id</text>
+<rect x="42" y="1305" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="55" y="1314" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="78" y="1314" dy="0.35em">role_id</text>
+<text class="mono" x="78" y="1342" dy="0.35em">assigned_at</text>
+</g>
+
+<g><rect class="card" x="272" y="1212" width="176" height="208" rx="10" fill="#E3F6F3" stroke="#86D3CA"/>
+<path d="M272,1244 H448" stroke="#86D3CA" stroke-width="1.5"/>
+<text class="nt mono" x="360" y="1233" text-anchor="middle" style="fill:#0F8478;font-size:14px">app_user</text>
+<rect x="282" y="1249" width="26" height="18" rx="9" fill="#0F8478"/><text class="bd" x="295" y="1258" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="318" y="1258" dy="0.35em">id</text>
+<text class="mono" x="318" y="1286" dy="0.35em">full_name</text>
+<text class="mono" x="318" y="1314" dy="0.35em">email</text>
+<text class="mono" x="318" y="1342" dy="0.35em">password_hash</text>
+<text class="mono" x="318" y="1370" dy="0.35em">active</text>
+<text class="mono" x="318" y="1398" dy="0.35em">created_at</text>
+</g>
+
+<g><rect class="card" x="512" y="1212" width="176" height="264" rx="10" fill="#FFF3DC" stroke="#F0C572"/>
+<path d="M512,1244 H688" stroke="#F0C572" stroke-width="1.5"/>
+<text class="nt mono" x="600" y="1233" text-anchor="middle" style="fill:#A96C05;font-size:14px">fraud_case</text>
+<rect x="522" y="1249" width="26" height="18" rx="9" fill="#A96C05"/><text class="bd" x="535" y="1258" text-anchor="middle" dy="0.35em">PK</text>
+<text class="mono" x="558" y="1258" dy="0.35em">id</text>
+<rect x="522" y="1277" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="535" y="1286" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="558" y="1286" dy="0.35em">decision_id</text>
+<rect x="522" y="1305" width="26" height="18" rx="9" fill="#556074"/><text class="bd" x="535" y="1314" text-anchor="middle" dy="0.35em">FK</text>
+<text class="mono" x="558" y="1314" dy="0.35em">assigned_to_id</text>
+<text class="mono" x="558" y="1342" dy="0.35em">status</text>
+<text class="mono" x="558" y="1370" dy="0.35em">label</text>
+<text class="mono" x="558" y="1398" dy="0.35em">notes</text>
+<text class="mono" x="558" y="1426" dy="0.35em">opened_at</text>
+<text class="mono" x="558" y="1454" dy="0.35em">resolved_at</text>
+</g>
+
+<path class="lk" d="M120,212 V360"/>
+<path class="lk" d="M111,226 H129"/>
+<path class="lk" d="M120,336 L109,360 M120,336 L120,360 M120,336 L131,360"/>
+<text class="ca" x="138" y="231" text-anchor="middle">1</text>
+<text class="ca" x="138" y="354" text-anchor="middle">N</text>
+
+<path class="lk" d="M120,484 V828"/>
+<path class="lk" d="M111,814 H129"/>
+<path class="lk" d="M120,508 L109,484 M120,508 L120,484 M120,508 L131,484"/>
+<text class="ca" x="138" y="503" text-anchor="middle">N</text>
+<text class="ca" x="138" y="822" text-anchor="middle">1</text>
+
+<path class="lk" d="M120,952 V1212"/>
+<path class="lk" d="M111,966 H129"/>
+<path class="lk" d="M120,1188 L109,1212 M120,1188 L120,1212 M120,1188 L131,1212"/>
+<text class="ca" x="138" y="971" text-anchor="middle">1</text>
+<text class="ca" x="138" y="1206" text-anchor="middle">N</text>
+
+<path class="lk" d="M208,1288 H272"/>
+<path class="lk" d="M258,1279 V1297"/>
+<path class="lk" d="M232,1288 L208,1277 M232,1288 L208,1288 M232,1288 L208,1299"/>
+<text class="ca" x="260" y="1270" text-anchor="middle">1</text>
+<text class="ca" x="220" y="1270" text-anchor="middle">N</text>
+
+<path class="lk" d="M448,164 H512"/>
+<path class="lk" d="M498,155 V173"/>
+<path class="lk" d="M472,164 L448,153 M472,164 L448,164 M472,164 L448,175"/>
+<text class="ca" x="500" y="146" text-anchor="middle">1</text>
+<text class="ca" x="460" y="146" text-anchor="middle">N</text>
+
+<path class="lk" d="M360,296 V360"/>
+<path class="lk" d="M351,346 H369"/>
+<path class="lk" d="M360,320 L349,296 M360,320 L360,296 M360,320 L371,296"/>
+<text class="ca" x="378" y="315" text-anchor="middle">N</text>
+<text class="ca" x="378" y="354" text-anchor="middle">1</text>
+
+<path class="lk" d="M448,436 H512"/>
+<path class="lk" d="M462,427 V445"/>
+<path class="lk" d="M488,436 L512,425 M488,436 L512,436 M488,436 L512,447"/>
+<text class="ca" x="460" y="418" text-anchor="middle">1</text>
+<text class="ca" x="500" y="418" text-anchor="middle">N</text>
+
+<path class="lk" d="M600,240 V360"/>
+<path class="lk" d="M591,254 H609"/>
+<path class="lk" d="M600,336 L589,360 M600,336 L600,360 M600,336 L611,360"/>
+<text class="ca" x="618" y="259" text-anchor="middle">1</text>
+<text class="ca" x="618" y="354" text-anchor="middle">N</text>
+
+<path class="lk" d="M600,764 V828"/>
+<path class="lk" d="M591,778 H609"/>
+<path class="lk" d="M600,804 L589,828 M600,804 L600,828 M600,804 L611,828"/>
+<text class="ca" x="618" y="783" text-anchor="middle">1</text>
+<text class="ca" x="618" y="822" text-anchor="middle">N</text>
+
+<path class="lk" d="M448,904 H512"/>
+<path class="lk" d="M462,895 V913"/>
+<path class="lk" d="M488,904 L512,893 M488,904 L512,904 M488,904 L512,915"/>
+<text class="ca" x="466" y="886" text-anchor="middle">0..1</text>
+<text class="ca" x="500" y="886" text-anchor="middle">N</text>
+
+<path class="lk" d="M688,904 H752"/>
+<path class="lk" d="M702,895 V913"/>
+<path class="lk" d="M728,904 L752,893 M728,904 L752,904 M728,904 L752,915"/>
+<text class="ca" x="700" y="886" text-anchor="middle">1</text>
+<text class="ca" x="740" y="886" text-anchor="middle">N</text>
+
+<path class="lk" d="M840,268 V360"/>
+<path class="lk" d="M831,282 H849"/>
+<path class="lk" d="M840,336 L829,360 M840,336 L840,360 M840,336 L851,360"/>
+<text class="ca" x="858" y="287" text-anchor="middle">1</text>
+<text class="ca" x="858" y="354" text-anchor="middle">N</text>
+
+<path class="lk" d="M840,708 V828"/>
+<path class="lk" d="M831,722 H849"/>
+<path class="lk" d="M840,804 L829,828 M840,804 L840,828 M840,804 L851,828"/>
+<text class="ca" x="858" y="727" text-anchor="middle">1</text>
+<text class="ca" x="858" y="822" text-anchor="middle">N</text>
+
+<path class="lk" d="M600,1148 V1212"/>
+<path class="lk" d="M591,1162 H609"/><path class="lk" d="M591,1198 H609"/>
+<text class="ca" x="618" y="1167" text-anchor="middle">1</text>
+<text class="ca" x="624" y="1206" text-anchor="middle">0..1</text>
+
+<path class="lk" d="M360,1092 V1212"/>
+<path class="lk" d="M351,1198 H369"/>
+<path class="lk" d="M360,1116 L349,1092 M360,1116 L360,1092 M360,1116 L371,1092"/>
+<text class="ca" x="378" y="1111" text-anchor="middle">N</text>
+<text class="ca" x="386" y="1206" text-anchor="middle">0..1</text>
+
+<path class="lk" d="M448,1288 H512"/>
+<path class="lk" d="M462,1279 V1297"/>
+<path class="lk" d="M488,1288 L512,1277 M488,1288 L512,1288 M488,1288 L512,1299"/>
+<text class="ca" x="460" y="1270" text-anchor="middle">1</text>
+<text class="ca" x="500" y="1270" text-anchor="middle">N</text>
+
+<path class="lk" d="M360,1420 V1504 H952 V436 H928"/>
+<path class="lk" d="M351,1434 H369"/>
+<path class="lk" d="M952,436 L928,425 M952,436 L928,436 M952,436 L928,447"/>
+<text class="ca" x="378" y="1439" text-anchor="middle">1</text>
+<text class="ca" x="940" y="418" text-anchor="middle">N</text>
+
+<text x="32" y="1542" font-size="12.5" fill="#79809A">Read from 1 to N. 0..1 means optional: a degraded decision has no model, only REVIEW/BLOCK open a case, and scheduled training has no user.</text>
+<text x="32" y="1562" font-size="12.5" fill="#79809A">The line along the bottom and right edges links app_user to rule_version (created_by_id and approved_by_id).</text>
+</svg>
