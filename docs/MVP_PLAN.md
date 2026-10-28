@@ -22,7 +22,7 @@ See `docs/architecture.md` and its two diagrams in `docs/diagrams/` (decision pa
 ### Must (no MVP without it)
 - Analyst login (JWT) with RBAC: 5 roles, 10 permissions (`docs/model.md` §4).
 - Transaction ingestion over REST → features → rules + score → verdict `APPROVE | REVIEW | BLOCK`, with `latency_ms`.
-- **Redis as online feature store**: per-customer counters (sliding windows, sorted sets) updated on every transaction. Postgres remains the source of truth: if Redis fails or drifts, Spring recomputes from Postgres. Latency is measured first with Postgres-only features and then with Redis, to show the before/after (paper Decision 5).
+- **Redis as online feature store**: each customer's recent facts (last 24 h of transactions and session events in sorted sets, last location), updated after every committed transaction, to count the short windows (`docs/features.md`). The 30-day and fixed features are read from Postgres. Postgres remains the source of truth: if Redis fails or loses its data, Spring computes from Postgres and rebuilds Redis. Latency is measured first with Postgres-only features and then with Redis, to show the before/after (paper Decision 5).
 - Every decision stores its `features_json` (prevents training-serving skew without a full feature store).
 - Versioned rules in the database with the lifecycle `DRAFT → SHADOW → PENDING_APPROVAL → ACTIVE`; changing a rule needs no redeploy. **Shadow, backtest and two-step approval are mandatory** (`docs/model.md` §6). Score thresholds are rules too.
 - Traceability: each decision links the evaluated `rule_version`s, the `model_version`, the features and the timestamp.

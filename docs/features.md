@@ -2,7 +2,7 @@
 
 Single source of truth for the risk features. The same names are used by:
 
-- the `decision-service`, which computes them (from Redis, or from Postgres when Redis is unavailable) and stores them in `decision.features_json`;
+- the `decision-service`, which computes them (see "Where each feature comes from") and stores them in `decision.features_json`;
 - the rule engine, whose `condition_json` refers to them by name;
 - the `scoring-service`, which receives them in `POST /score` and trains on them in `POST /retrain`;
 - the app's rule editor, which lists them through `GET /features`.
@@ -12,7 +12,7 @@ Adding, renaming or changing a feature is a PR against this file (and the OpenAP
 ## Conventions
 
 - `snake_case` names; windows are suffixes (`_5m`, `_1h`, `_24h`, `_30d`).
-- Windows are measured backwards from the transaction's `occurred_at`, excluding the transaction itself.
+- Windows are measured backwards from the transaction's `occurred_at`, excluding the transaction itself: features are computed before the transaction is written anywhere.
 - `BALANCE_QUERY` transactions count for velocity features but are never scored.
 - Distances in kilometers (haversine), amounts in COP, times in Colombia time (`America/Bogota`).
 - When a value cannot be computed (new customer, no previous transaction), the default listed below is used; the model learns that the default means "no history".
@@ -45,14 +45,48 @@ Notes:
 - `scenario` and `source` are never features (`docs/data.md` §4).
 - Sparkov provides no device or session data, so `is_new_device`, `device_age_days`, `customers_on_device`, `failed_logins_1h` and `password_changed_24h` take their defaults for seed rows; only the simulator produces non-default values.
 
-## Where each feature lives in Redis
+## Where each feature comes from
 
-Per-customer keys, updated on every transaction or session event; Postgres can rebuild all of them.
-
-| Key | Structure | Feeds |
+| Source | Features | Why there |
 |---|---|---|
-| `cust:{id}:tx` | sorted set (score = epoch ms, member = `{txId}:{amount}`), trimmed to 30 days | `tx_count_*`, `spend_24h`, `amount_vs_avg_30d`, `minutes_since_prev` |
-| `cust:{id}:last` | hash (`lat`, `lon`, `at`) | `km_from_prev`, `implied_speed_kmh` |
-| `cust:{id}:devices` | set of device ids | `is_new_device` |
-| `cust:{id}:auth` | sorted set of session events (score = epoch ms) | `failed_logins_1h`, `password_changed_24h` |
-| `dev:{id}:customers` | sorted set (score = last seen) | `customers_on_device` |
+| The transaction itself | `amount`, `category`, `hour_of_day`, `is_night` | Nothing to look up. Never stored beforehand |
+| Redis, recent facts | `tx_count_5m`, `tx_count_1h`, `spend_24h`, `minutes_since_prev`, `km_from_prev`, `implied_speed_kmh`, `failed_logins_1h`, `password_changed_24h` | The answer depends on the exact second and changes with every event, so it is counted when the transaction arrives |
+| Postgres, one row by id | `km_from_home`, `account_age_days`, `device_age_days` | Fixed data of the customer or device |
+| Postgres, indexed history query | `amount_vs_avg_30d`, `is_new_device`, `customers_on_device` | Long windows that barely move with one more transaction. The same SQL computes them for the seed and live, so training and serving cannot drift apart. At real scale they would become a per-customer profile refreshed daily |
+
+When Redis does not answer or has lost its data, the Redis features are computed with Postgres queries over `transaction` and `session_event`; the values are the same, only slower.
+
+## Redis keys
+
+Redis holds **recent facts** (times, amounts, places, logins), never feature values: a value such as `tx_count_5m = 3` changes with the clock, so it is counted from the facts on every request. All keys are per customer except the marker.
+
+| Key | Structure | Content | Retention | Feeds |
+|---|---|---|---|---|
+| `cust:{id}:tx` | sorted set, score = `occurred_at` (epoch ms) | member `{txId}:{amount}`; `BALANCE_QUERY` has amount `0` | trimmed to 24 h on every write; the key expires 24 h after the last write | `tx_count_5m`, `tx_count_1h`, `spend_24h` |
+| `cust:{id}:last` | hash | `lat`, `lon`, `at` of the last transaction | overwritten on every transaction; no expiry (three fields per customer) | `minutes_since_prev`, `km_from_prev`, `implied_speed_kmh` |
+| `cust:{id}:auth` | sorted set, score = `occurred_at` (epoch ms) | member `{eventId}:{eventType}` | trimmed to 24 h on every write; expires 24 h after the last write | `failed_logins_1h`, `password_changed_24h` |
+| `features:ready` | string | `1` | set when a rebuild finishes; absent means Redis lost its data | — |
+
+The member carries the id because a sorted set keeps one copy of each member: two purchases of the same amount would otherwise collapse into one.
+
+## Write order
+
+1. Compute the features (Redis + Postgres + the transaction).
+2. Score and evaluate the rules.
+3. Commit to Postgres in one database transaction: `transaction`, `decision` with `features_json`, `decision_rule_hit` rows and, if any, `fraud_case`.
+4. Only then update Redis in one pipeline: `ZADD` + trim + `EXPIRE` on `cust:{id}:tx`, `HSET` on `cust:{id}:last`.
+
+Session events follow the same order: insert into `session_event`, then `ZADD` on `cust:{id}:auth`.
+
+- If step 3 fails, Redis is not touched: it never counts a transaction that does not exist.
+- If step 4 fails after the commit, Redis is missing one fact. The `decision-service` deletes `features:ready`, which triggers a rebuild.
+- Two transactions of the same customer decided at the same instant do not see each other. The MVP accepts it; the simulator sends one customer's events in order.
+
+## Rebuild when Redis is empty
+
+Redis runs without persistence, so after a restart every key is gone, and a missing key would read as "no activity". The marker tells the two cases apart:
+
+- `features:ready` present → use Redis.
+- Absent → compute these features from Postgres for this request, and start one rebuild (guarded with `SET features:rebuilding 1 NX EX 300`): for every customer, reload the last 24 h of `transaction` and `session_event` and the last transaction into the keys above, then `SET features:ready 1`.
+
+The same Postgres path serves when Redis does not answer at all; the dashboard then shows `REDIS_UNAVAILABLE`.
