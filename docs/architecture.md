@@ -22,7 +22,8 @@ Subtitle: What happens while the app waits: steps 1→4 in under 500 ms. Red dot
 | z-app | monedasegura-app | 0 | 1 |
 | z-dec | decision-service | 1 | 1 |
 | z-cache | infra | 2 | 0 |
-| z-sco | scoring-service | 2–3 | 1 |
+| z-sco | scoring-service | 2 | 1 |
+| z-obj | infra | 3 | 1 |
 | z-db | infra | 2 | 2 |
 
 ### Nodes
@@ -32,7 +33,7 @@ Subtitle: What happens while the app waits: steps 1→4 in under 500 ms. Red dot
 | dec | decision-api | Spring · rules + breaker | API | 1 | 1 |
 | redis | redis | Redis · online features | DB | 2 | 0 |
 | sco | scoring-api | FastAPI · LightGBM | API | 2 | 1 |
-| models | models | Volume · model files | DB | 3 | 1 |
+| models | models | SeaweedFS · S3 bucket | DB | 3 | 1 |
 | pg | postgres | PostgreSQL · records | DB | 2 | 2 |
 
 ### Connections
@@ -52,7 +53,7 @@ Subtitle: What happens while the app waits: steps 1→4 in under 500 ms. Red dot
 4. **SQL**: it stores the transaction, the decision, `features_json` and the evaluated rules in Postgres, and answers the app.
 
 - **without Redis** (contingency): if Redis does not answer, features are recomputed with Postgres queries.
-- **loads**: `scoring-api` keeps the active model loaded from its model volume.
+- **loads**: `scoring-api` serves the active model from memory. It downloads the file from the `models` bucket (SeaweedFS, S3 API) only when it is told to activate a version (`PUT /active-model`), checks its SHA-256 and swaps it in; `/score` never reads the bucket. After a restart it has no model until `decision-api` sends the active version again, and meanwhile decisions are `degraded`.
 
 ---
 
@@ -77,7 +78,7 @@ Subtitle: Flows off the critical path: nobody waits for them. Each band is one f
 | pgb | postgres | PostgreSQL · labeled cases | DB | 0 | 1 |
 | retrain | retrainer | Spring @Scheduled 02:00 | API | 1 | 1 |
 | sco | scoring-api | FastAPI · trains LightGBM | API | 2 | 1 |
-| models | models | Volume · model files | DB | 3 | 1 |
+| models | models | SeaweedFS · S3 bucket | DB | 3 | 1 |
 | sparkov | sparkov | Kaggle · Sparkov (CC0) | EXT | 0 | 2 |
 | seed | seed-job | Python · colombianizes | API | 1 | 2 |
 | pgc | postgres | PostgreSQL · same DB | DB | 2 | 2 |
@@ -92,11 +93,11 @@ Subtitle: Flows off the critical path: nobody waits for them. Each band is one f
 | reeval | dec | re-decides degraded | sync | |
 | retrain | pgb | reads labels | sync | |
 | retrain | sco | /retrain | sync | |
-| sco | models | saves | sync | |
+| sco | models | uploads | sync | |
 | sparkov | seed | download | async | |
 | seed | pgc | load | async | |
 
 ### How to read it
 - **A · re-evaluation**: every decision is published to the `decisions` topic. The `re-evaluator` (same `decision-service`) consumes it and, if it was `degraded`, runs it through `decision-api` again once scoring is back, creating a `REEVALUATION` decision.
-- **B · daily retraining**: at 02:00 (or with the manual button) the `retrainer` reads the labeled cases from Postgres and sends them to `scoring-api` (`/retrain`), which trains a new model and saves it. It is activated only if it passes the quality gate (`docs/model.md` §8).
+- **B · daily retraining**: at 02:00 (or with the manual button) the `retrainer` reads the labeled cases from Postgres and sends them to `scoring-api` (`/retrain`), which trains a new model and uploads it to the `models` bucket; `decision-api` records its `artifact_uri` in `model_version`. It is activated only if it passes the quality gate (`docs/model.md` §8).
 - **C · initial seed**: the `seed-job` (a script in `scoring-service`) downloads Sparkov, colombianizes it and loads it into Postgres once (`docs/data.md`).

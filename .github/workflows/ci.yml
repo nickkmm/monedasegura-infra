@@ -34,10 +34,14 @@ jobs:
 
       - name: Smoke test the infrastructure services
         run: |
-          docker compose --env-file .env.example up -d --wait postgres redis kafka
+          docker compose --env-file .env.example up -d --wait postgres redis kafka seaweedfs
           docker compose --env-file .env.example run --rm kafka-init
+          docker compose --env-file .env.example run --rm seaweedfs-init
+          # a second run must be a no-op (the bucket already exists)
+          docker compose --env-file .env.example run --rm seaweedfs-init
           docker compose --env-file .env.example exec -T postgres pg_isready -U monedasegura -d monedasegura
           docker compose --env-file .env.example exec -T redis redis-cli ping
+          docker compose --env-file .env.example exec -T seaweedfs sh -c 'echo s3.bucket.list | weed shell -master=localhost:9333' | grep -qw models
 
       - name: Logs on failure
         if: failure()

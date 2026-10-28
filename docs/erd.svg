@@ -78,7 +78,7 @@
 <text class="mono" x="318" y="434" dy="0.35em">first_seen_at</text>
 </g>
 
-<g><rect class="card" x="512" y="304" width="176" height="264" rx="10" fill="#FFF3DC" stroke="#F0C572"/>
+<g><rect class="card" x="512" y="304" width="176" height="320" rx="10" fill="#FFF3DC" stroke="#F0C572"/>
 <path d="M512,336 H688" stroke="#F0C572" stroke-width="1.5"/>
 <text class="nt mono" x="600" y="325" text-anchor="middle" style="fill:#A96C05;font-size:14px">model_version</text>
 <rect x="522" y="341" width="26" height="18" rx="9" fill="#A96C05"/><text class="bd" x="535" y="350" text-anchor="middle" dy="0.35em">PK</text>
@@ -89,8 +89,10 @@
 <text class="mono" x="558" y="434" dy="0.35em">trigger</text>
 <text class="mono" x="558" y="462" dy="0.35em">algorithm</text>
 <text class="mono" x="558" y="490" dy="0.35em">metrics_json</text>
-<text class="mono" x="558" y="518" dy="0.35em">status</text>
-<text class="mono" x="558" y="546" dy="0.35em">trained_at</text>
+<text class="mono" x="558" y="518" dy="0.35em">artifact_uri</text>
+<text class="mono" x="558" y="546" dy="0.35em">artifact_sha256</text>
+<text class="mono" x="558" y="574" dy="0.35em">status</text>
+<text class="mono" x="558" y="602" dy="0.35em">trained_at</text>
 </g>
 
 <g><rect class="card" x="752" y="304" width="176" height="208" rx="10" fill="#F4EBFF" stroke="#C9A6EE"/>
@@ -272,10 +274,10 @@
 <text class="ca" x="460" y="774" text-anchor="middle">1</text>
 <text class="ca" x="500" y="774" text-anchor="middle">N</text>
 
-<path class="lk" d="M600,568 V716"/>
-<path class="lk" d="M591,582 H609"/>
+<path class="lk" d="M600,624 V716"/>
+<path class="lk" d="M591,638 H609"/>
 <path class="lk" d="M600,692 L589,716 M600,692 L600,716 M600,692 L611,716"/>
-<text class="ca" x="626" y="587" text-anchor="middle">0..1</text>
+<text class="ca" x="626" y="643" text-anchor="middle">0..1</text>
 <text class="ca" x="618" y="710" text-anchor="middle">N</text>
 
 <path class="lk" d="M600,1036 V1148 H1432 V380 H1408"/>

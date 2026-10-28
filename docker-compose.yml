@@ -1,7 +1,7 @@
 # MonedaSegura local stack.
 #
 #   cp .env.example .env
-#   docker compose up -d                      # infrastructure only: postgres, redis, kafka
+#   docker compose up -d                      # infrastructure only: postgres, redis, kafka, seaweedfs
 #   docker compose --profile apps up -d       # + decision-service, scoring-service, app
 #   docker compose --profile seed run --rm seed-job   # load the colombianized Sparkov seed once
 #   docker compose --profile tools up -d      # + kafka-ui for debugging
@@ -80,6 +80,38 @@ services:
         && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic decisions
     restart: "no"
 
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    # Object storage with the S3 API for the model files (bucket `models`). One process runs
+    # master, volume, filer and S3 gateway. The two variables create its only (admin) identity;
+    # requests without them are rejected.
+    command: ["server", "-s3", "-dir=/data", "-ip.bind=0.0.0.0"]
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+    ports:
+      - "${S3_PORT:-8333}:8333"
+    volumes:
+      - s3data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  seaweedfs-init:
+    image: chrislusf/seaweedfs:4.48
+    # Creates the bucket once SeaweedFS is up (no-op if it exists), then exits.
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        echo s3.bucket.list | weed shell -master=seaweedfs:9333 | grep -qw ${S3_BUCKET:-models}
+        || echo "s3.bucket.create -name ${S3_BUCKET:-models}" | weed shell -master=seaweedfs:9333
+    restart: "no"
+
   # ------------------------------------------------------------------ own services (sibling repos)
   decision-service:
     profiles: ["apps"]
@@ -112,11 +144,15 @@ services:
     build: ../monedasegura-scoring-service
     environment:
       SCORING_SERVICE_TOKEN: ${SCORING_SERVICE_TOKEN}
-      MODEL_DIR: /models
+      S3_ENDPOINT: http://seaweedfs:8333
+      S3_BUCKET: ${S3_BUCKET:-models}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
     ports:
       - "${SCORING_SERVICE_PORT:-8000}:8000"
-    volumes:
-      - models:/models
+    depends_on:
+      seaweedfs-init:
+        condition: service_completed_successfully
 
   app:
     profiles: ["apps"]
@@ -163,5 +199,5 @@ services:
 
 volumes:
   pgdata:
-  models:
+  s3data:
   seed-cache:

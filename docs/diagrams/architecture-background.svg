@@ -1,5 +1,5 @@
 <svg id="archBackground" viewBox="0 0 1056 720" role="img" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif">
-<title id="archBackground-t">MonedaSegura MVP: background flows</title><desc id="archBackground-d">A: decision-api publishes every decision to Kafka; the re-evaluator consumes it and re-decides degraded decisions through decision-api. B: at 02:00 the retrainer reads labeled cases from Postgres and calls scoring-api /retrain, which saves the new model. C: the seed-job downloads Sparkov and loads it into Postgres once.</desc>
+<title id="archBackground-t">MonedaSegura MVP: background flows</title><desc id="archBackground-d">A: decision-api publishes every decision to Kafka; the re-evaluator consumes it and re-decides degraded decisions through decision-api. B: at 02:00 the retrainer reads labeled cases from Postgres and calls scoring-api /retrain, which uploads the new model to the models bucket (SeaweedFS, S3 API). C: the seed-job downloads Sparkov and loads it into Postgres once.</desc>
 <style>
 #archBackground .mono{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace}
 #archBackground .nn{font-size:14px;font-weight:700}
@@ -47,7 +47,7 @@
 <g><rect x="848" y="324" width="176" height="72" rx="10" fill="#E3F6F3" stroke="#86D3CA" stroke-width="1.5"/>
 <rect x="860" y="338" width="34" height="18" rx="9" fill="#0F8478"/><text class="bd" x="877" y="347" text-anchor="middle" dy="0.35em">DB</text>
 <text class="mono nn" x="902" y="347" dy="0.35em" style="fill:#0F8478">models</text>
-<text class="tech" x="860" y="378">Volume · model files</text></g>
+<text class="tech" x="860" y="378">SeaweedFS · S3 bucket</text></g>
 <g><rect x="32" y="524" width="176" height="72" rx="10" fill="#F4EBFF" stroke="#C9A6EE" stroke-width="1.5"/>
 <rect x="44" y="538" width="34" height="18" rx="9" fill="#7439B8"/><text class="bd" x="61" y="547" text-anchor="middle" dy="0.35em">EXT</text>
 <text class="mono nn" x="86" y="547" dy="0.35em" style="fill:#7439B8">sparkov</text>
@@ -71,7 +71,7 @@
 <path d="M480,360 H576" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archBackground-a-sync)"/>
 <text class="el" x="528.0" y="348" text-anchor="middle" dy="0.35em">/retrain</text>
 <path d="M752,360 H848" fill="none" stroke="#161A26" stroke-width="1.75" marker-end="url(#archBackground-a-sync)"/>
-<text class="el" x="800.0" y="348" text-anchor="middle" dy="0.35em">saves</text>
+<text class="el" x="800.0" y="348" text-anchor="middle" dy="0.35em">uploads</text>
 <path d="M208,560 H304" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archBackground-a-async)"/>
 <text class="el" x="256.0" y="548" text-anchor="middle" dy="0.35em">download</text>
 <path d="M480,560 H576" fill="none" stroke="#556074" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#archBackground-a-async)"/>

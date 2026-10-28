@@ -1,5 +1,5 @@
 <svg id="archDecision" viewBox="0 0 1056 720" role="img" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif">
-<title id="archDecision-t">MonedaSegura MVP: decision path</title><desc id="archDecision-d">The Flutter app sends the transaction to decision-api (1), which reads features from Redis (2), asks scoring-api for a score behind a circuit breaker (3) and stores everything in Postgres (4). If Redis fails, features are recomputed from Postgres. scoring-api loads its model from the model volume.</desc>
+<title id="archDecision-t">MonedaSegura MVP: decision path</title><desc id="archDecision-d">The Flutter app sends the transaction to decision-api (1), which reads features from Redis (2), asks scoring-api for a score behind a circuit breaker (3) and stores everything in Postgres (4). If Redis fails, features are recomputed from Postgres. scoring-api serves its model from memory, loaded from the models bucket (SeaweedFS, S3 API).</desc>
 <style>
 #archDecision .mono{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace}
 #archDecision .nn{font-size:14px;font-weight:700}
@@ -20,8 +20,10 @@
 <text class="zl" x="304" y="310">DECISION-SERVICE</text>
 <rect x="560" y="88" width="208" height="124" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
 <text class="zl" x="576" y="110">INFRA</text>
-<rect x="560" y="288" width="480" height="124" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
+<rect x="560" y="288" width="208" height="124" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
 <text class="zl" x="576" y="310">SCORING-SERVICE</text>
+<rect x="832" y="288" width="208" height="124" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
+<text class="zl" x="848" y="310">INFRA</text>
 <rect x="560" y="488" width="208" height="124" rx="14" fill="#F3F4F8" stroke="#D5D9E4" stroke-width="1.25" stroke-dasharray="6 5"/>
 <text class="zl" x="576" y="510">INFRA</text>
 <g><rect x="32" y="324" width="176" height="72" rx="10" fill="#F4EBFF" stroke="#C9A6EE" stroke-width="1.5"/>
@@ -43,7 +45,7 @@
 <g><rect x="848" y="324" width="176" height="72" rx="10" fill="#E3F6F3" stroke="#86D3CA" stroke-width="1.5"/>
 <rect x="860" y="338" width="34" height="18" rx="9" fill="#0F8478"/><text class="bd" x="877" y="347" text-anchor="middle" dy="0.35em">DB</text>
 <text class="mono nn" x="902" y="347" dy="0.35em" style="fill:#0F8478">models</text>
-<text class="tech" x="860" y="378">Volume · model files</text></g>
+<text class="tech" x="860" y="378">SeaweedFS · S3 bucket</text></g>
 <g><rect x="576" y="524" width="176" height="72" rx="10" fill="#E3F6F3" stroke="#86D3CA" stroke-width="1.5"/>
 <rect x="588" y="538" width="34" height="18" rx="9" fill="#0F8478"/><text class="bd" x="605" y="547" text-anchor="middle" dy="0.35em">DB</text>
 <text class="mono nn" x="630" y="547" dy="0.35em" style="fill:#0F8478">postgres</text>

@@ -8,8 +8,10 @@ info:
     Its only client is `monedasegura-decision-service`; the Flutter app never calls it.
 
     - The decision-service owns the model registry (`model_version` table) and decides
-      which version is active; this service stores the model files and serves the
-      version it was told to serve (`PUT /active-model`).
+      which version is active; this service writes the model files to the `models`
+      bucket (object storage with the S3 API, SeaweedFS in docker-compose) and serves the
+      version it was told to serve (`PUT /active-model`). The active model is kept in
+      memory: `/score` never reads the bucket.
     - Feature names and meanings are defined once in `docs/features.md`.
     - `POST /score` is on the critical path: the decision-service calls it behind a
       circuit breaker with a short timeout and falls back to rules only when it fails.
@@ -82,8 +84,10 @@ paths:
       operationId: retrainModel
       summary: Train a new candidate model
       description: |
-        Trains a LightGBM model on the labeled rows sent by the decision-service, stores
-        the model file under the returned version and reports validation metrics.
+        Trains a LightGBM model on the labeled rows sent by the decision-service, uploads
+        `{version}/model.txt` and `{version}/metadata.json` (feature names and order,
+        metrics) to the `models` bucket and reports validation metrics plus where the file
+        is. A version is never overwritten: an existing `{version}` key is a `409`.
         It does **not** activate the model: the decision-service applies the quality gate
         (`docs/model.md` §8) and then calls `PUT /active-model`.
         Synchronous: expected to finish in seconds for the MVP data volume; the caller
@@ -101,6 +105,11 @@ paths:
               schema: { $ref: '#/components/schemas/TrainedModel' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: That version already exists in the bucket; nothing was overwritten.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '422':
           description: Not enough rows, or a single class only; nothing was trained.
           content:
@@ -128,15 +137,24 @@ paths:
       tags: [models]
       operationId: setActiveModel
       summary: Load a stored version and serve it from /score
+      description: |
+        Downloads the file from `artifactUri`, checks its SHA-256, loads it into memory and
+        only then swaps it for the model being served, so `/score` is never left without a
+        model. If any step fails, the previous model keeps serving and nothing changes.
+        The decision-service calls it on activation and again whenever `/health` reports an
+        `activeModel` different from its `ACTIVE` version (for example after a restart,
+        when this service starts with no model).
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [version]
+              required: [version, artifactUri, sha256]
               properties:
                 version: { type: string, example: v4 }
+                artifactUri: { type: string, example: 's3://models/v4/model.txt', description: 'From `model_version.artifact_uri`.' }
+                sha256: { type: string, pattern: '^[0-9a-f]{64}$', description: 'From `model_version.artifact_sha256`.' }
       responses:
         '200':
           description: Version loaded and now active
@@ -145,7 +163,12 @@ paths:
               schema: { $ref: '#/components/schemas/ActiveModel' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404':
-          description: Unknown version
+          description: No file at `artifactUri`; the previous model keeps serving.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: The file's SHA-256 does not match; the previous model keeps serving.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -155,6 +178,7 @@ paths:
       tags: [models]
       operationId: getModel
       summary: Metadata of a stored model
+      description: Read from `{version}/metadata.json` in the `models` bucket.
       parameters:
         - name: version
           in: path
@@ -287,10 +311,12 @@ components:
 
     TrainedModel:
       type: object
-      required: [version, algorithm, featureSchemaVersion, metrics, trainedAt]
+      required: [version, algorithm, featureSchemaVersion, metrics, artifactUri, sha256, trainedAt]
       properties:
         version: { type: string, example: v4 }
         algorithm: { type: string, enum: [LIGHTGBM] }
+        artifactUri: { type: string, example: 's3://models/v4/model.txt', description: 'Stored by the decision-service in `model_version.artifact_uri`.' }
+        sha256: { type: string, pattern: '^[0-9a-f]{64}$', description: 'SHA-256 of the model file; stored in `model_version.artifact_sha256`.' }
         featureSchemaVersion: { type: string, example: v1, description: Version of `docs/features.md` the model was trained on. }
         metrics: { $ref: '#/components/schemas/Metrics' }
         trainedAt: { type: string, format: date-time }
