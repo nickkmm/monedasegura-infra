@@ -54,7 +54,7 @@
 <text class="mono" x="798" y="218" dy="0.35em">assigned_at</text>
 </g>
 
-<g><rect class="card" x="32" y="304" width="176" height="208" rx="10" fill="#EEF1FF" stroke="#A9B4F2"/>
+<g><rect class="card" x="32" y="304" width="176" height="236" rx="10" fill="#EEF1FF" stroke="#A9B4F2"/>
 <path d="M32,336 H208" stroke="#A9B4F2" stroke-width="1.5"/>
 <text class="nt mono" x="120" y="325" text-anchor="middle" style="fill:#4453C9;font-size:14px">session_event</text>
 <rect x="42" y="341" width="26" height="18" rx="9" fill="#4453C9"/><text class="bd" x="55" y="350" text-anchor="middle" dy="0.35em">PK</text>
@@ -65,7 +65,8 @@
 <text class="mono" x="78" y="406" dy="0.35em">device_id</text>
 <text class="mono" x="78" y="434" dy="0.35em">event_type</text>
 <text class="mono" x="78" y="462" dy="0.35em">ip_address</text>
-<text class="mono" x="78" y="490" dy="0.35em">occurred_at</text>
+<text class="mono" x="78" y="490" dy="0.35em">idempotency_key</text>
+<text class="mono" x="78" y="518" dy="0.35em">occurred_at</text>
 </g>
 
 <g><rect class="card" x="272" y="304" width="176" height="152" rx="10" fill="#E3F6F3" stroke="#86D3CA"/>
@@ -154,7 +155,7 @@
 <text class="mono" x="78" y="958" dy="0.35em">created_at</text>
 </g>
 
-<g><rect class="card" x="272" y="716" width="176" height="404" rx="10" fill="#E3F6F3" stroke="#86D3CA"/>
+<g><rect class="card" x="272" y="716" width="176" height="432" rx="10" fill="#E3F6F3" stroke="#86D3CA"/>
 <path d="M272,748 H448" stroke="#86D3CA" stroke-width="1.5"/>
 <text class="nt mono" x="360" y="737" text-anchor="middle" style="fill:#0F8478;font-size:14px">transaction</text>
 <rect x="282" y="753" width="26" height="18" rx="9" fill="#0F8478"/><text class="bd" x="295" y="762" text-anchor="middle" dy="0.35em">PK</text>
@@ -172,7 +173,8 @@
 <text class="mono" x="318" y="1014" dy="0.35em">counterparty</text>
 <text class="mono" x="318" y="1042" dy="0.35em">source</text>
 <text class="mono" x="318" y="1070" dy="0.35em">scenario</text>
-<text class="mono" x="318" y="1098" dy="0.35em">occurred_at</text>
+<text class="mono" x="318" y="1098" dy="0.35em">idempotency_key</text>
+<text class="mono" x="318" y="1126" dy="0.35em">occurred_at</text>
 </g>
 
 <g><rect class="card" x="512" y="716" width="176" height="320" rx="10" fill="#FFF3DC" stroke="#F0C572"/>
@@ -244,10 +246,10 @@
 <text class="ca" x="220" y="146" text-anchor="middle">1</text>
 <text class="ca" x="260" y="146" text-anchor="middle">N</text>
 
-<path class="lk" d="M120,512 V716"/>
+<path class="lk" d="M120,540 V716"/>
 <path class="lk" d="M111,702 H129"/>
-<path class="lk" d="M120,536 L109,512 M120,536 L120,512 M120,536 L131,512"/>
-<text class="ca" x="138" y="531" text-anchor="middle">N</text>
+<path class="lk" d="M120,564 L109,540 M120,564 L120,540 M120,564 L131,540"/>
+<text class="ca" x="138" y="559" text-anchor="middle">N</text>
 <text class="ca" x="138" y="710" text-anchor="middle">1</text>
 
 <path class="lk" d="M208,380 H272"/>

@@ -85,6 +85,7 @@ erDiagram
         uuid device_id FK
         varchar event_type
         inet ip_address
+        varchar idempotency_key
         timestamptz occurred_at
     }
     transaction {
@@ -100,6 +101,7 @@ erDiagram
         varchar counterparty
         varchar source
         varchar scenario
+        varchar idempotency_key
         timestamptz occurred_at
     }
     decision {
@@ -212,6 +214,7 @@ Classic RBAC: a user has roles and a role has permissions. Code **never checks a
 | | `device_id` | uuid | FK → `device.id`; index (`device_id`, `occurred_at`) and (`customer_id`, `device_id`), for `customers_on_device` and `is_new_device` |
 | | `event_type` | varchar(30) | `LOGIN_OK`, `LOGIN_FAILED`, `PASSWORD_CHANGED`, `DEVICE_REGISTERED` |
 | | `ip_address` | inet | |
+| | `idempotency_key` | varchar(64) | unique; the client's `Idempotency-Key` (a fresh UUID per event from the simulator). A repeated key returns the stored event instead of a second row (§9) |
 | | `occurred_at` | timestamptz | index (`customer_id`, `occurred_at`) |
 | `transaction` | `id` | uuid | PK |
 | | `customer_id` | uuid | FK → `customer.id` |
@@ -224,6 +227,7 @@ Classic RBAC: a user has roles and a role has permissions. Code **never checks a
 | | `longitude` | double precision | |
 | | `counterparty` | varchar(120) | merchant or destination account |
 | | `source` | varchar(20) | `SEED_DATASET` (loaded from Sparkov) or `SIMULATOR` (generated live) |
+| | `idempotency_key` | varchar(64) | unique; the client's `Idempotency-Key` (a fresh UUID per event from the simulator; Sparkov's `trans_num` for the seed). A repeated key returns the stored decision instead of deciding again (§9) |
 | | `scenario` | varchar(20) | known ground truth: `NORMAL`, `DATASET_FRAUD` (Sparkov card fraud), `CARD_FRAUD` (simulated card fraud), `ORIGINATION`, `ATO`; **never** sent to the model as a feature, only used as a training label and for measuring |
 | | `occurred_at` | timestamptz | index (`customer_id`, `occurred_at`) |
 
@@ -381,3 +385,13 @@ DRAFT ──► SHADOW ──► PENDING_APPROVAL ──► ACTIVE ──► RET
   3. candidate recall ≥ active recall − 0.02.
 - Pass: Spring calls `PUT /active-model`; the `scoring-service` downloads the file, checks its SHA-256, loads it into memory and only then swaps it for the previous one (no gap without a model). Candidate → `ACTIVE`, previous → `RETIRED`. Fail: it stays `CANDIDATE` and an alert shows on the dashboard; a `DATA_SCIENTIST` may activate it manually.
 - **Serving after a restart:** the `scoring-service` keeps the active model only in memory, so it starts with none (`/health` reports `activeModel: null`, `/score` answers `503` and decisions are `degraded`). When the `decision-service` sees that `activeModel` differs from the `ACTIVE` row, it calls `PUT /active-model` again. `/score` never touches the bucket.
+
+## 9. Duplicates
+
+**The same request twice** (a retry after a lost response, a double tap):
+- `POST /transactions` and `POST /session-events` require an `Idempotency-Key` header, chosen by the client and repeated on every retry of the same event. It is stored in `idempotency_key`, which is unique.
+- A key already stored → nothing is evaluated, stored or counted again: no new `decision`, no Redis update, no `fraud_case`. The API returns the stored result with `200` (the first time it was `201`).
+- Same key with a different body → `422`: the client reused a key for another event.
+- Two copies arriving at the same instant both pass the lookup, but the unique constraint rejects the second insert. That request then returns the stored result too.
+- The re-evaluator may get a Kafka message twice (delivery is at least once). It skips a degraded decision that already has a `REEVALUATION`.
+
