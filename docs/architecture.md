@@ -49,7 +49,7 @@ Subtitle: What happens while the app waits: steps 1→6 in under 500 ms. Red dot
 | sco | models | loads | sync | |
 
 ### How to read it
-1. **REST + JWT**: the app sends the transaction to `decision-api` with the user's JWT. It can come from the analyst's queue or from the simulator (`ADMIN` only); `decision-api` checks the permission (RBAC).
+1. **REST + JWT**: the app sends the transaction to `decision-api` with the user's JWT and an `Idempotency-Key`. It can come from the analyst's queue or from the simulator (`ADMIN` only); `decision-api` checks the permission (RBAC). A key it has already stored returns the original result and skips steps 2–6 (`docs/model.md` §9).
 2. **counters**: `decision-api` reads the customer's recent facts from Redis (last 24 h of transactions and session events, last location) and counts the short windows: velocity, spend, impossible travel, failed logins (`docs/features.md`).
 3. **profile**: it reads the rest from Postgres: the customer and device rows (home, account and device age) and three indexed history queries (30-day average amount, known device, customers on the device). Features that come with the transaction itself (amount, hour, category) need no lookup.
 4. **/score (breaker)**: it asks `scoring-api` for the fraud probability behind a circuit breaker with a timeout, then evaluates the rules. If scoring does not answer, the decision uses rules only and is marked `degraded`.
@@ -108,7 +108,7 @@ Subtitle: Flows off the critical path: nobody waits for them. Each band is one f
 | rebuild | redisd | writes keys | sync | |
 
 ### How to read it
-- **A · re-evaluation**: every decision is published to the `decisions` topic. The `re-evaluator` (same `decision-service`) consumes it and, if it was `degraded`, sends it back to `decision-api` once scoring is back. The new `REEVALUATION` decision reuses the original `features_json` (recomputing the windows later would count transactions that happened afterwards): only the score and the rules run again.
+- **A · re-evaluation**: every decision is published to the `decisions` topic (at least once, so a degraded decision that already has a `REEVALUATION` is skipped). The `re-evaluator` (same `decision-service`) consumes it and, if it was `degraded`, sends it back to `decision-api` once scoring is back. The new `REEVALUATION` decision reuses the original `features_json` (recomputing the windows later would count transactions that happened afterwards): only the score and the rules run again.
 - **B · daily retraining**: at 02:00 (or with the manual button) the `retrainer` reads the labeled cases from Postgres and sends them to `scoring-api` (`/retrain`), which trains a new model and uploads it to the `models` bucket; `decision-api` records its `artifact_uri` in `model_version`. It is activated only if it passes the quality gate (`docs/model.md` §8).
 - **C · initial seed**: the `seed-job` (a script in `scoring-service`) downloads Sparkov, colombianizes it and loads it into Postgres once (`docs/data.md`).
 - **D · Redis rebuild**: Redis keeps no data on disk, so after a restart its keys are gone and an empty key would look like "no activity". When `decision-api` finds no `features:ready` marker, it computes features from Postgres (the contingency path) while one `rebuilder` run reloads the last 24 h of each customer's transactions and session events, and their last location; then it sets the marker and step 2 uses Redis again (`docs/features.md`).

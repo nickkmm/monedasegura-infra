@@ -17,6 +17,9 @@ info:
     - Amounts are COP integers (no decimals). Timestamps are ISO 8601 with offset.
     - Feature names come from `docs/features.md`; the data model from `docs/model.md`.
     - Personal data (customer name, document) is returned **masked**.
+    - Ingestion (`POST /transactions`, `POST /session-events`) requires an `Idempotency-Key`
+      header: a retry with the same key returns the stored result instead of a duplicate
+      (`docs/model.md` §9).
     - All identifiers and enum values are in English; the app translates them for display.
 servers:
   - url: http://localhost:8080/api/v1
@@ -104,7 +107,10 @@ paths:
         unless it comes from `POST /simulator/runs`.
         `BALANCE_QUERY` transactions are stored and counted for velocity but not scored:
         the response has `decision: null`.
+        A repeated `Idempotency-Key` decides nothing again: it returns the stored transaction
+        and its original decision with `200`.
       x-required-permission: SIMULATOR_RUN
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody:
         required: true
         content:
@@ -116,10 +122,16 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TransactionResult' }
+        '200':
+          description: Replay of an `Idempotency-Key` already seen; the stored result, unchanged.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransactionResult' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/IdempotencyKeyReused' }
 
   /transactions/{transactionId}:
     get:
@@ -143,8 +155,11 @@ paths:
       tags: [transactions]
       operationId: submitSessionEvent
       summary: Submit an authentication/session event
-      description: Login results, password changes and device registrations. They feed ATO features; they are not scored.
+      description: |
+        Login results, password changes and device registrations. They feed ATO features; they
+        are not scored. A repeated `Idempotency-Key` returns the stored event with `200`.
       x-required-permission: SIMULATOR_RUN
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
       requestBody:
         required: true
         content:
@@ -156,9 +171,15 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SessionEvent' }
+        '200':
+          description: Replay of an `Idempotency-Key` already seen; the stored event, unchanged.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionEvent' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/IdempotencyKeyReused' }
 
   # ---------------------------------------------------------------- cases
   /cases:
@@ -556,7 +577,7 @@ paths:
         The server builds the events of the scenario from the customer's real habits
         (`docs/data.md` §3), stores them with `source = SIMULATOR` and the scenario as
         ground truth, and runs every transaction through the same decision path as
-        `POST /transactions`. Returns what was generated and how it was decided.
+        `POST /transactions`, with a fresh idempotency key per generated event. Returns what was generated and how it was decided.
       x-required-permission: SIMULATOR_RUN
       requestBody:
         required: true
@@ -727,6 +748,12 @@ components:
       description: Issued by `POST /auth/login`; expires after ~8 h; carries the user's permissions as claims.
 
   parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Chosen by the client for each event (a UUID) and repeated on every retry of that event. Stored in `idempotency_key`.
+      schema: { type: string, minLength: 8, maxLength: 64, example: 3b1f7c2e-9d4a-4f61-8a0b-2c5e7d9f1a33 }
     Page:
       name: page
       in: query
@@ -774,6 +801,11 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
     NotFound:
       description: Resource not found
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    IdempotencyKeyReused:
+      description: The `Idempotency-Key` was already used for a different body; nothing was stored.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
