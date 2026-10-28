@@ -97,7 +97,7 @@ paths:
       operationId: submitTransaction
       summary: Submit a transaction and get its decision
       description: |
-        The critical path (steps 1→4 of the decision-path diagram): features → rules → score
+        The critical path (steps 1→6 of the decision-path diagram): features → score → rules
         → verdict, in under 500 ms. In the MVP only the simulator submits transactions, so it
         requires `SIMULATOR_RUN`. The body never carries ground truth (`scenario`); a
         transaction submitted here is stored with `source = SIMULATOR`, `scenario = NORMAL`

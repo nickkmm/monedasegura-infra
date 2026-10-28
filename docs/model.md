@@ -5,7 +5,7 @@ Single source of truth for the relational model of the `decision-service` (Postg
 Where the data comes from: see `docs/data.md` (seed from the colombianized Sparkov dataset + simulator).
 
 Deliberately outside the ERD:
-- **Redis** holds a fast view of per-customer features (windowed counters). It is a derived cache; the source of truth is `transaction` and `session_event`.
+- **Redis** holds each customer's recent facts (last 24 h of transactions and session events, last location) so short windows are counted fast; never feature values. It is a derived cache, rebuilt from `transaction` and `session_event` (`docs/features.md`).
 - **Kafka** carries events (`decisions` topic); it is not model storage.
 - **Model files** live in object storage (SeaweedFS with the S3 API, bucket `models`), written only by the `scoring-service`. This database holds their registry (`model_version`), which points to each file through `artifact_uri`.
 
@@ -209,13 +209,13 @@ Classic RBAC: a user has roles and a role has permissions. Code **never checks a
 | | `first_seen_at` | timestamptz | |
 | `session_event` | `id` | uuid | PK |
 | | `customer_id` | uuid | FK → `customer.id` |
-| | `device_id` | uuid | FK → `device.id` |
+| | `device_id` | uuid | FK → `device.id`; index (`device_id`, `occurred_at`) and (`customer_id`, `device_id`), for `customers_on_device` and `is_new_device` |
 | | `event_type` | varchar(30) | `LOGIN_OK`, `LOGIN_FAILED`, `PASSWORD_CHANGED`, `DEVICE_REGISTERED` |
 | | `ip_address` | inet | |
 | | `occurred_at` | timestamptz | index (`customer_id`, `occurred_at`) |
 | `transaction` | `id` | uuid | PK |
 | | `customer_id` | uuid | FK → `customer.id` |
-| | `device_id` | uuid | FK → `device.id` |
+| | `device_id` | uuid | FK → `device.id`; index (`device_id`, `occurred_at`) and (`customer_id`, `device_id`), for `customers_on_device` and `is_new_device` |
 | | `type` | varchar(20) | `DEBIT`, `CREDIT`, `TRANSFER`, `BALANCE_QUERY` |
 | | `category` | varchar(30) | merchant category (Sparkov's: `shopping_net`, `grocery_pos`, `gas_transport`…); strong feature |
 | | `amount` | numeric(14,2) | |
@@ -235,7 +235,7 @@ The customer–device relationship has no table of its own: it is derived from `
 | `decision` | `id` | uuid | PK |
 | | `transaction_id` | uuid | FK → `transaction.id`. `BALANCE_QUERY` transactions are not evaluated (no decision), but they count for velocity features |
 | | `model_version_id` | uuid | FK → `model_version.id`; **null** when `degraded` |
-| | `kind` | varchar(20) | `ORIGINAL` or `REEVALUATION` (re-evaluation through Kafka creates a new row, never overwrites) |
+| | `kind` | varchar(20) | `ORIGINAL` or `REEVALUATION` (re-evaluation through Kafka creates a new row, never overwrites, and reuses the original `features_json`) |
 | | `verdict` | varchar(10) | `APPROVE`, `REVIEW`, `BLOCK` |
 | | `score` | numeric(5,4) | 0–1; null when `degraded` |
 | | `degraded` | boolean | decided with rules only (circuit breaker open) |
