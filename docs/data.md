@@ -63,7 +63,7 @@ Generates live traffic from the app (permission `SIMULATOR_RUN`, `ADMIN` only). 
 - **Normal**: transactions within those habits.
 - **Account takeover (ATO)**: failed logins, password change, new device, then large transactions from an impossible location.
 - **Origination**: a brand-new customer (account just created) that immediately moves large amounts.
-- **Card fraud**: a burst of online purchases at night, far above the customer's average (the Sparkov pattern); stored as `scenario = CARD_FRAUD`, so it can be told apart from the seeded `DATASET_FRAUD`.
+- **Card fraud**: a burst of online purchases at night, far above the customer's average (the Sparkov pattern), including the same charge repeated at the same merchant within minutes; stored as `scenario = CARD_FRAUD`, so it can be told apart from the seeded `DATASET_FRAUD`.
 
 The simulator calls `POST /transactions` like any client would, with a fresh `Idempotency-Key` per event; the decision path does not know the transaction is simulated.
 

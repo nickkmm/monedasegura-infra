@@ -50,6 +50,7 @@ paths:
                 spend_24h: 2100000
                 tx_count_5m: 3
                 tx_count_1h: 6
+                same_amount_counterparty_10m: 0
                 minutes_since_prev: 4
                 km_from_home: 6.2
                 km_from_prev: 1.1
@@ -236,13 +237,14 @@ components:
       type: object
       description: Feature vector v1. Names, meanings and defaults in `docs/features.md`.
       additionalProperties: false
-      required: [amount, amount_vs_avg_30d, spend_24h, tx_count_5m, tx_count_1h, minutes_since_prev, km_from_home, km_from_prev, implied_speed_kmh, hour_of_day, is_night, category, is_new_device, device_age_days, customers_on_device, failed_logins_1h, password_changed_24h, account_age_days]
+      required: [amount, amount_vs_avg_30d, spend_24h, tx_count_5m, tx_count_1h, same_amount_counterparty_10m, minutes_since_prev, km_from_home, km_from_prev, implied_speed_kmh, hour_of_day, is_night, category, is_new_device, device_age_days, customers_on_device, failed_logins_1h, password_changed_24h, account_age_days]
       properties:
         amount: { type: number, minimum: 0, description: COP }
         amount_vs_avg_30d: { type: number, minimum: 0 }
         spend_24h: { type: number, minimum: 0, description: COP }
         tx_count_5m: { type: integer, minimum: 0 }
         tx_count_1h: { type: integer, minimum: 0 }
+        same_amount_counterparty_10m: { type: integer, minimum: 0 }
         minutes_since_prev: { type: number, minimum: 0 }
         km_from_home: { type: number, minimum: 0 }
         km_from_prev: { type: number, minimum: 0 }
