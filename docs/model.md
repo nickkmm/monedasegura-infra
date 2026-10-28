@@ -5,9 +5,9 @@ Single source of truth for the relational model of the `decision-service` (Postg
 Where the data comes from: see `docs/data.md` (seed from the colombianized Sparkov dataset + simulator).
 
 Deliberately outside the ERD:
-- **Redis** holds a fast view of per-customer features (windowed counters). It is a derived cache; the source of truth is `transaction` and `session_event`.
+- **Redis** holds each customer's recent facts (last 24 h of transactions and session events, last location) so short windows are counted fast; never feature values. It is a derived cache, rebuilt from `transaction` and `session_event` (`docs/features.md`).
 - **Kafka** carries events (`decisions` topic); it is not model storage.
-- **scoring-service** stores the model binary; only its registry (`model_version`) lives here.
+- **Model files** live in object storage (SeaweedFS with the S3 API, bucket `models`), written only by the `scoring-service`. This database holds their registry (`model_version`), which points to each file through `artifact_uri`.
 
 ## 1. Diagram (Mermaid)
 
@@ -85,6 +85,7 @@ erDiagram
         uuid device_id FK
         varchar event_type
         inet ip_address
+        varchar idempotency_key
         timestamptz occurred_at
     }
     transaction {
@@ -100,6 +101,7 @@ erDiagram
         varchar counterparty
         varchar source
         varchar scenario
+        varchar idempotency_key
         timestamptz occurred_at
     }
     decision {
@@ -121,6 +123,8 @@ erDiagram
         varchar trigger
         varchar algorithm
         jsonb metrics_json
+        varchar artifact_uri
+        char artifact_sha256
         varchar status
         timestamptz trained_at
     }
@@ -207,13 +211,14 @@ Classic RBAC: a user has roles and a role has permissions. Code **never checks a
 | | `first_seen_at` | timestamptz | |
 | `session_event` | `id` | uuid | PK |
 | | `customer_id` | uuid | FK → `customer.id` |
-| | `device_id` | uuid | FK → `device.id` |
+| | `device_id` | uuid | FK → `device.id`; index (`device_id`, `occurred_at`) and (`customer_id`, `device_id`), for `customers_on_device` and `is_new_device` |
 | | `event_type` | varchar(30) | `LOGIN_OK`, `LOGIN_FAILED`, `PASSWORD_CHANGED`, `DEVICE_REGISTERED` |
 | | `ip_address` | inet | |
+| | `idempotency_key` | varchar(64) | unique; the client's `Idempotency-Key` (a fresh UUID per event from the simulator). A repeated key returns the stored event instead of a second row (§9) |
 | | `occurred_at` | timestamptz | index (`customer_id`, `occurred_at`) |
 | `transaction` | `id` | uuid | PK |
 | | `customer_id` | uuid | FK → `customer.id` |
-| | `device_id` | uuid | FK → `device.id` |
+| | `device_id` | uuid | FK → `device.id`; index (`device_id`, `occurred_at`) and (`customer_id`, `device_id`), for `customers_on_device` and `is_new_device` |
 | | `type` | varchar(20) | `DEBIT`, `CREDIT`, `TRANSFER`, `BALANCE_QUERY` |
 | | `category` | varchar(30) | merchant category (Sparkov's: `shopping_net`, `grocery_pos`, `gas_transport`…); strong feature |
 | | `amount` | numeric(14,2) | |
@@ -222,6 +227,7 @@ Classic RBAC: a user has roles and a role has permissions. Code **never checks a
 | | `longitude` | double precision | |
 | | `counterparty` | varchar(120) | merchant or destination account |
 | | `source` | varchar(20) | `SEED_DATASET` (loaded from Sparkov) or `SIMULATOR` (generated live) |
+| | `idempotency_key` | varchar(64) | unique; the client's `Idempotency-Key` (a fresh UUID per event from the simulator; Sparkov's `trans_num` for the seed). A repeated key returns the stored decision instead of deciding again (§9) |
 | | `scenario` | varchar(20) | known ground truth: `NORMAL`, `DATASET_FRAUD` (Sparkov card fraud), `CARD_FRAUD` (simulated card fraud), `ORIGINATION`, `ATO`; **never** sent to the model as a feature, only used as a training label and for measuring |
 | | `occurred_at` | timestamptz | index (`customer_id`, `occurred_at`) |
 
@@ -233,7 +239,7 @@ The customer–device relationship has no table of its own: it is derived from `
 | `decision` | `id` | uuid | PK |
 | | `transaction_id` | uuid | FK → `transaction.id`. `BALANCE_QUERY` transactions are not evaluated (no decision), but they count for velocity features |
 | | `model_version_id` | uuid | FK → `model_version.id`; **null** when `degraded` |
-| | `kind` | varchar(20) | `ORIGINAL` or `REEVALUATION` (re-evaluation through Kafka creates a new row, never overwrites) |
+| | `kind` | varchar(20) | `ORIGINAL` or `REEVALUATION` (re-evaluation through Kafka creates a new row, never overwrites, and reuses the original `features_json`) |
 | | `verdict` | varchar(10) | `APPROVE`, `REVIEW`, `BLOCK` |
 | | `score` | numeric(5,4) | 0–1; null when `degraded` |
 | | `degraded` | boolean | decided with rules only (circuit breaker open) |
@@ -246,6 +252,8 @@ The customer–device relationship has no table of its own: it is derived from `
 | | `trigger` | varchar(20) | `SCHEDULED` (daily job) or `MANUAL` ("Retrain now" button) |
 | | `algorithm` | varchar(30) | `LIGHTGBM` |
 | | `metrics_json` | jsonb | PR-AUC, precision, recall and `featureImportance` (gain share per feature in `docs/features.md`, sums to 1) |
+| | `artifact_uri` | varchar(200) | unique; where the model file lives, e.g. `s3://models/v3/model.txt`. Files are immutable: a version is never overwritten |
+| | `artifact_sha256` | char(64) | SHA-256 of the model file; the `scoring-service` checks it before serving the file |
 | | `status` | varchar(20) | `CANDIDATE`, `ACTIVE`, `RETIRED`; exactly one `ACTIVE`. Activated automatically only if it passes the quality gate (§8); otherwise it stays `CANDIDATE` and a `DATA_SCIENTIST` may activate it manually |
 | | `trained_at` | timestamptz | |
 
@@ -370,9 +378,21 @@ DRAFT ──► SHADOW ──► PENDING_APPROVAL ──► ACTIVE ──► RET
 ## 8. Retraining
 
 - **Automatic, daily at 02:00** (Colombia time), scheduled in the `decision-service` (`@Scheduled`); plus a "Retrain now" button (`MODEL_TRAIN`) for the demo.
-- Spring sends the labeled rows to the `scoring-service` (`POST /retrain`): each decision's `features_json` + the `label` of its `fraud_case` (plus the Sparkov seed). Python trains and returns metrics; Spring registers a `model_version` as `CANDIDATE`.
+- Spring sends the labeled rows to the `scoring-service` (`POST /retrain`): each decision's `features_json` + the `label` of its `fraud_case` (plus the Sparkov seed). Python trains, uploads `v{n}/model.txt` and `v{n}/metadata.json` (feature names and order, metrics) to the `models` bucket, and returns the metrics, `artifact_uri` and `artifact_sha256`; Spring registers a `model_version` as `CANDIDATE`.
 - **Quality gate** before activation (initial thresholds, adjustable):
   1. at least 50 new labeled cases since the last model;
   2. candidate PR-AUC ≥ active PR-AUC;
   3. candidate recall ≥ active recall − 0.02.
-- Pass: candidate → `ACTIVE`, previous → `RETIRED`. Fail: it stays `CANDIDATE` and an alert shows on the dashboard; a `DATA_SCIENTIST` may activate it manually.
+- Pass: Spring calls `PUT /active-model`; the `scoring-service` downloads the file, checks its SHA-256, loads it into memory and only then swaps it for the previous one (no gap without a model). Candidate → `ACTIVE`, previous → `RETIRED`. Fail: it stays `CANDIDATE` and an alert shows on the dashboard; a `DATA_SCIENTIST` may activate it manually.
+- **Serving after a restart:** the `scoring-service` keeps the active model only in memory, so it starts with none (`/health` reports `activeModel: null`, `/score` answers `503` and decisions are `degraded`). When the `decision-service` sees that `activeModel` differs from the `ACTIVE` row, it calls `PUT /active-model` again. `/score` never touches the bucket.
+
+## 9. Duplicates
+
+**The same request twice** (a retry after a lost response, a double tap):
+- `POST /transactions` and `POST /session-events` require an `Idempotency-Key` header, chosen by the client and repeated on every retry of the same event. It is stored in `idempotency_key`, which is unique.
+- A key already stored → nothing is evaluated, stored or counted again: no new `decision`, no Redis update, no `fraud_case`. The API returns the stored result with `200` (the first time it was `201`).
+- Same key with a different body → `422`: the client reused a key for another event.
+- Two copies arriving at the same instant both pass the lookup, but the unique constraint rejects the second insert. That request then returns the stored result too.
+- The re-evaluator may get a Kafka message twice (delivery is at least once). It skips a degraded decision that already has a `REEVALUATION`.
+
+**Two real but nearly identical transactions** (a merchant charging twice, a fraudster repeating a purchase): they carry different keys, so both are decided. They are not rejected, because two equal purchases can be legitimate. Instead the feature `same_amount_counterparty_10m` (`docs/features.md`) marks them, so a rule can send them to review and the model can learn from it.

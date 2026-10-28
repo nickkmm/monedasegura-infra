@@ -12,8 +12,8 @@ See `docs/architecture.md` and its two diagrams in `docs/diagrams/` (decision pa
 |---|---|---|
 | `monedasegura-app` | Flutter: login, case queue, detail, rules, simulator, dashboard | Juan José, Santiago |
 | `monedasegura-decision-service` | Spring Boot: JWT auth + RBAC, transactions, features, rule engine, verdict, cases, circuit breaker (Resilience4j), Kafka re-evaluator, daily retraining job | Nicolás |
-| `monedasegura-scoring-service` | Python/FastAPI: `/score`, `/retrain`, model files, Sparkov seed job | Nicholas, Laura |
-| `monedasegura-infra` | `docker-compose.yml`, `.env.example`, Postgres/Kafka/Redis config, startup and seed scripts; `docs/` (context, ERD, diagrams, OpenAPI contracts) | Nicolás |
+| `monedasegura-scoring-service` | Python/FastAPI: `/score`, `/retrain`, model files in the S3 bucket, Sparkov seed job | Nicholas, Laura |
+| `monedasegura-infra` | `docker-compose.yml`, `.env.example`, Postgres/Kafka/Redis/SeaweedFS config, startup and seed scripts; `docs/` (context, ERD, diagrams, OpenAPI contracts) | Nicolás |
 
 **Contract first.** Before coding, the OpenAPI contracts are written: `docs/api/decision-api.yaml` (app → decision-service) and `docs/api/scoring-api.yaml` (decision-service → scoring-service), plus the feature catalog `docs/features.md`; each repo works against mocks until the others exist. Locally the 4 repos are cloned as sibling folders inside `SecureMoney/`, and the compose file builds them with `build: ../<repo>`; later each repo can publish its image (GHCR) and compose only pulls. Everything starts with a single `docker compose up` from `monedasegura-infra`.
 
@@ -22,11 +22,11 @@ See `docs/architecture.md` and its two diagrams in `docs/diagrams/` (decision pa
 ### Must (no MVP without it)
 - Analyst login (JWT) with RBAC: 5 roles, 10 permissions (`docs/model.md` §4).
 - Transaction ingestion over REST → features → rules + score → verdict `APPROVE | REVIEW | BLOCK`, with `latency_ms`.
-- **Redis as online feature store**: per-customer counters (sliding windows, sorted sets) updated on every transaction. Postgres remains the source of truth: if Redis fails or drifts, Spring recomputes from Postgres. Latency is measured first with Postgres-only features and then with Redis, to show the before/after (paper Decision 5).
+- **Redis as online feature store**: each customer's recent facts (last 24 h of transactions and session events in sorted sets, last location), updated after every committed transaction, to count the short windows (`docs/features.md`). The 30-day and fixed features are read from Postgres. Postgres remains the source of truth: if Redis fails or loses its data, Spring computes from Postgres and rebuilds Redis. Latency is measured first with Postgres-only features and then with Redis, to show the before/after (paper Decision 5).
 - Every decision stores its `features_json` (prevents training-serving skew without a full feature store).
 - Versioned rules in the database with the lifecycle `DRAFT → SHADOW → PENDING_APPROVAL → ACTIVE`; changing a rule needs no redeploy. **Shadow, backtest and two-step approval are mandatory** (`docs/model.md` §6). Score thresholds are rules too.
 - Traceability: each decision links the evaluated `rule_version`s, the `model_version`, the features and the timestamp.
-- Scoring service with LightGBM trained on the colombianized Sparkov seed (`docs/data.md`).
+- Scoring service with LightGBM trained on the colombianized Sparkov seed (`docs/data.md`). Model files go to object storage with the S3 API (**SeaweedFS** in docker-compose; S3 or GCS later by changing the endpoint), and `model_version.artifact_uri` points to each one.
 - **Contingency:** timeout + circuit breaker; if scoring fails, the decision uses rules only and is marked `degraded = true`.
 - **Kafka (1 broker, KRaft mode)** off the critical path: each decision is published to the `decisions` topic; a Spring consumer **re-evaluates `degraded` decisions** once scoring recovers (deferred enforcement, paper Decisions 3 and 7).
 - Case queue, detail and confirmed/dismissed labeling.
@@ -46,8 +46,8 @@ See `docs/architecture.md` and its two diagrams in `docs/diagrams/` (decision pa
 HTGNN / Lambda, Flink, Feast, tiered storage, disaggregated state, sustained 500 tx/s (the breaking point is measured instead), multi-jurisdiction compliance (design only), Firebase/ML Kit for the model (client-side inference can be tampered with; the decision must be server-side), `account` table, general audit log.
 
 ## 4. Deployment
-- Everything packaged with **Docker** (one container per service + Postgres + Kafka + Redis), orchestrated with **docker-compose** on a single host.
-- **No Kubernetes:** ~6 containers on one host, no autoscaling or multiple nodes; K8s would add complexity with no benefit. It is argued in the design as the future scaling path.
+- Everything packaged with **Docker** (one container per service + Postgres + Kafka + Redis + SeaweedFS), orchestrated with **docker-compose** on a single host.
+- **No Kubernetes:** ~7 containers on one host, no autoscaling or multiple nodes; K8s would add complexity with no benefit. It is argued in the design as the future scaling path.
 - **Pending decision:** develop locally with docker-compose from day 1; decide around week 5 whether to deploy to **GCP Compute Engine** (VM with ≥4 GB RAM, docker-compose, Caddy for HTTPS; trial credits require a card, a budget alert and shutting the VM down afterwards). Zero-cost alternatives: student credits or a local demo.
 - **Continuous deployment (decided):** whatever the host, it is one VM running the same `docker-compose.yml`. Every merge to `main` in any of the four repos runs `.github/workflows/deploy.yml` (in this repo; the other three call it), which connects over SSH and runs `scripts/deploy.sh`: move all four repos to the latest `main`, then `docker compose --profile apps up -d --build`. The server's `.env` is created once by hand and never leaves the server. Until the `DEPLOY_*` secrets are set, the job skips. Setup steps: README, "Deployment".
 - PaaS such as Render/Railway/Fly are ruled out: poor fit for Kafka, and cold starts distort latency.
