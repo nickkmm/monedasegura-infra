@@ -395,3 +395,4 @@ DRAFT ──► SHADOW ──► PENDING_APPROVAL ──► ACTIVE ──► RET
 - Two copies arriving at the same instant both pass the lookup, but the unique constraint rejects the second insert. That request then returns the stored result too.
 - The re-evaluator may get a Kafka message twice (delivery is at least once). It skips a degraded decision that already has a `REEVALUATION`.
 
+**Two real but nearly identical transactions** (a merchant charging twice, a fraudster repeating a purchase): they carry different keys, so both are decided. They are not rejected, because two equal purchases can be legitimate. Instead the feature `same_amount_counterparty_10m` (`docs/features.md`) marks them, so a rule can send them to review and the model can learn from it.

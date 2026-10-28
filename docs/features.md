@@ -26,6 +26,7 @@ Adding, renaming or changing a feature is a PR against this file (and the OpenAP
 | `spend_24h` | number | `0` | Sum of the customer's amounts in the last 24 h | card fraud bursts |
 | `tx_count_5m` | integer | `0` | Customer's transactions in the last 5 minutes | velocity |
 | `tx_count_1h` | integer | `0` | Customer's transactions in the last hour | velocity |
+| `same_amount_counterparty_10m` | integer | `0` | Customer's transactions in the last 10 minutes with the same `amount` and the same `counterparty` as this one (`BALANCE_QUERY` and empty counterparties never match) | duplicate charges, card testing |
 | `minutes_since_prev` | number | `10080` | Minutes since the customer's previous transaction (default: one week) | velocity (Sparkov p50: 82 vs 262) |
 | `km_from_home` | number | `0` | Distance from `customer.home_latitude/longitude` to the transaction | ATO, impossible travel |
 | `km_from_prev` | number | `0` | Distance from the previous transaction's location | impossible travel |
@@ -43,6 +44,7 @@ Adding, renaming or changing a feature is a PR against this file (and the OpenAP
 Notes:
 - `score` is **not** a feature of the model: it is the model's output. Rules may use it as if it were one (`docs/model.md` §5).
 - `scenario` and `source` are never features (`docs/data.md` §4).
+- How often `same_amount_counterparty_10m` is non-zero in the Sparkov seed is not measured yet; the simulator's card fraud produces repeated charges on purpose, so the signal exists either way.
 - Sparkov provides no device or session data, so `is_new_device`, `device_age_days`, `customers_on_device`, `failed_logins_1h` and `password_changed_24h` take their defaults for seed rows; only the simulator produces non-default values.
 
 ## Where each feature comes from
@@ -50,7 +52,7 @@ Notes:
 | Source | Features | Why there |
 |---|---|---|
 | The transaction itself | `amount`, `category`, `hour_of_day`, `is_night` | Nothing to look up. Never stored beforehand |
-| Redis, recent facts | `tx_count_5m`, `tx_count_1h`, `spend_24h`, `minutes_since_prev`, `km_from_prev`, `implied_speed_kmh`, `failed_logins_1h`, `password_changed_24h` | The answer depends on the exact second and changes with every event, so it is counted when the transaction arrives |
+| Redis, recent facts | `tx_count_5m`, `tx_count_1h`, `same_amount_counterparty_10m`, `spend_24h`, `minutes_since_prev`, `km_from_prev`, `implied_speed_kmh`, `failed_logins_1h`, `password_changed_24h` | The answer depends on the exact second and changes with every event, so it is counted when the transaction arrives |
 | Postgres, one row by id | `km_from_home`, `account_age_days`, `device_age_days` | Fixed data of the customer or device |
 | Postgres, indexed history query | `amount_vs_avg_30d`, `is_new_device`, `customers_on_device` | Long windows that barely move with one more transaction. The same SQL computes them for the seed and live, so training and serving cannot drift apart. At real scale they would become a per-customer profile refreshed daily |
 
@@ -62,12 +64,12 @@ Redis holds **recent facts** (times, amounts, places, logins), never feature val
 
 | Key | Structure | Content | Retention | Feeds |
 |---|---|---|---|---|
-| `cust:{id}:tx` | sorted set, score = `occurred_at` (epoch ms) | member `{txId}:{amount}`; `BALANCE_QUERY` has amount `0` | trimmed to 24 h on every write; the key expires 24 h after the last write | `tx_count_5m`, `tx_count_1h`, `spend_24h` |
+| `cust:{id}:tx` | sorted set, score = `occurred_at` (epoch ms) | member `{txId}:{amount}:{cp}`, where `cp` is the first 12 hex characters of the SHA-256 of the trimmed, lower-cased counterparty (`-` when empty); `BALANCE_QUERY` has amount `0` | trimmed to 24 h on every write; the key expires 24 h after the last write | `tx_count_5m`, `tx_count_1h`, `same_amount_counterparty_10m`, `spend_24h` |
 | `cust:{id}:last` | hash | `lat`, `lon`, `at` of the last transaction | overwritten on every transaction; no expiry (three fields per customer) | `minutes_since_prev`, `km_from_prev`, `implied_speed_kmh` |
 | `cust:{id}:auth` | sorted set, score = `occurred_at` (epoch ms) | member `{eventId}:{eventType}` | trimmed to 24 h on every write; expires 24 h after the last write | `failed_logins_1h`, `password_changed_24h` |
 | `features:ready` | string | `1` | set when a rebuild finishes; absent means Redis lost its data | — |
 
-The member carries the id because a sorted set keeps one copy of each member: two purchases of the same amount would otherwise collapse into one.
+The member carries the id because a sorted set keeps one copy of each member: two purchases of the same amount would otherwise collapse into one. The counterparty goes in as a short hash so the member stays small and never contains a `:`.
 
 ## Write order
 
