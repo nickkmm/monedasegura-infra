@@ -58,7 +58,7 @@ SecureMoney/
 
 cd monedasegura-infra
 cp .env.example .env                               # then change the secrets
-docker compose up -d                               # postgres, redis, kafka (+ creates topic `decisions`)
+docker compose up -d                               # postgres, redis, kafka, seaweedfs (+ topic `decisions`, bucket `models`)
 docker compose --profile apps up -d --build        # + the three services
 docker compose --profile seed run --rm seed-job    # load the Sparkov seed once
 docker compose --profile tools up -d               # + kafka-ui on http://localhost:8081
@@ -70,6 +70,7 @@ docker compose down                                # stop (add -v to wipe the da
 | postgres | `postgres:5432` | `localhost:5432` |
 | redis | `redis:6379` | `localhost:6379` |
 | kafka | `kafka:9092` | `localhost:9094` |
+| seaweedfs (S3 API) | `http://seaweedfs:8333` | `http://localhost:8333` |
 | decision-service | `decision-service:8080` | `http://localhost:8080/api/v1` |
 | scoring-service | `scoring-service:8000` | `http://localhost:8000` |
 | app (Flutter web) | — | `http://localhost:3000` |
@@ -81,7 +82,7 @@ The compose file is the integration contract between repos:
 | Repo | Must provide |
 |---|---|
 | `monedasegura-decision-service` | A `Dockerfile` at the repo root; the app listens on `8080` with base path `/api/v1` (`docs/api/decision-api.yaml`); reads the `SPRING_*`, `SCORING_SERVICE_*` and `JWT_SECRET` variables; owns the database schema (migrations). |
-| `monedasegura-scoring-service` | A `Dockerfile` at the repo root; by default serves the API on `8000` (`docs/api/scoring-api.yaml`); the command `seed` runs the seed job (`docs/data.md`) using `DATABASE_URL` and the `SEED_*` / `USD_TO_COP` variables; stores models in `MODEL_DIR`. |
+| `monedasegura-scoring-service` | A `Dockerfile` at the repo root; by default serves the API on `8000` (`docs/api/scoring-api.yaml`); the command `seed` runs the seed job (`docs/data.md`) using `DATABASE_URL` and the `SEED_*` / `USD_TO_COP` variables; stores model files in the S3 bucket with `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY` and `S3_SECRET_KEY` (any S3 client, e.g. `boto3`); the bucket is created by `seaweedfs-init`, not by the service. |
 | `monedasegura-app` | A `Dockerfile` at the repo root that builds Flutter web and serves it on port `80`; reads `API_BASE_URL`. |
 
 ## Deployment

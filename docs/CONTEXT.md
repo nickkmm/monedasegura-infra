@@ -42,7 +42,7 @@ Authors: Rojas, Mejía, Solis, Gómez, Cárdenas. Advisor: J. L. Jurado. AI-assi
 Paper roadmap: **MVP in pure Kappa (Kafka + Flink)**, then integrate the HTGNN. A transaction authorized in fail-open stays in the Kafka log and is re-evaluated later (deferred, not absent, enforcement).
 
 ## 4. How the MVP departs from the paper
-The paper's Section VII planned Kafka + PyFlink + Feast + LightGBM + FastAPI + a React console. The course changed to Flutter, and the team defined a new MVP (`docs/MVP_PLAN.md`): Flutter app, Spring Boot decision service, FastAPI scoring service, Postgres, Redis and Kafka. It keeps the paper's principles (contingency path, single feature definitions via `features_json`, shadow + backtest + approval for rules, deferred enforcement through Kafka, tabular model first) without Flink, Feast or the HTGNN.
+The paper's Section VII planned Kafka + PyFlink + Feast + LightGBM + FastAPI + a React console. The course changed to Flutter, and the team defined a new MVP (`docs/MVP_PLAN.md`): Flutter app, Spring Boot decision service, FastAPI scoring service, Postgres, Redis, Kafka and SeaweedFS (S3-compatible object storage for the model files). It keeps the paper's principles (contingency path, single feature definitions via `features_json`, shadow + backtest + approval for rules, deferred enforcement through Kafka, tabular model first) without Flink, Feast or the HTGNN.
 
 ## 5. Diagrams
 - `data/01_essentials/architecture/MonedaSegura_arquitectura_v1.svg`: the paper's **final** architecture (not the MVP).

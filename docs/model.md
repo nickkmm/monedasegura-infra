@@ -7,7 +7,7 @@ Where the data comes from: see `docs/data.md` (seed from the colombianized Spark
 Deliberately outside the ERD:
 - **Redis** holds a fast view of per-customer features (windowed counters). It is a derived cache; the source of truth is `transaction` and `session_event`.
 - **Kafka** carries events (`decisions` topic); it is not model storage.
-- **scoring-service** stores the model binary; only its registry (`model_version`) lives here.
+- **Model files** live in object storage (SeaweedFS with the S3 API, bucket `models`), written only by the `scoring-service`. This database holds their registry (`model_version`), which points to each file through `artifact_uri`.
 
 ## 1. Diagram (Mermaid)
 
@@ -121,6 +121,8 @@ erDiagram
         varchar trigger
         varchar algorithm
         jsonb metrics_json
+        varchar artifact_uri
+        char artifact_sha256
         varchar status
         timestamptz trained_at
     }
@@ -246,6 +248,8 @@ The customer–device relationship has no table of its own: it is derived from `
 | | `trigger` | varchar(20) | `SCHEDULED` (daily job) or `MANUAL` ("Retrain now" button) |
 | | `algorithm` | varchar(30) | `LIGHTGBM` |
 | | `metrics_json` | jsonb | PR-AUC, precision, recall and `featureImportance` (gain share per feature in `docs/features.md`, sums to 1) |
+| | `artifact_uri` | varchar(200) | unique; where the model file lives, e.g. `s3://models/v3/model.txt`. Files are immutable: a version is never overwritten |
+| | `artifact_sha256` | char(64) | SHA-256 of the model file; the `scoring-service` checks it before serving the file |
 | | `status` | varchar(20) | `CANDIDATE`, `ACTIVE`, `RETIRED`; exactly one `ACTIVE`. Activated automatically only if it passes the quality gate (§8); otherwise it stays `CANDIDATE` and a `DATA_SCIENTIST` may activate it manually |
 | | `trained_at` | timestamptz | |
 
@@ -370,9 +374,10 @@ DRAFT ──► SHADOW ──► PENDING_APPROVAL ──► ACTIVE ──► RET
 ## 8. Retraining
 
 - **Automatic, daily at 02:00** (Colombia time), scheduled in the `decision-service` (`@Scheduled`); plus a "Retrain now" button (`MODEL_TRAIN`) for the demo.
-- Spring sends the labeled rows to the `scoring-service` (`POST /retrain`): each decision's `features_json` + the `label` of its `fraud_case` (plus the Sparkov seed). Python trains and returns metrics; Spring registers a `model_version` as `CANDIDATE`.
+- Spring sends the labeled rows to the `scoring-service` (`POST /retrain`): each decision's `features_json` + the `label` of its `fraud_case` (plus the Sparkov seed). Python trains, uploads `v{n}/model.txt` and `v{n}/metadata.json` (feature names and order, metrics) to the `models` bucket, and returns the metrics, `artifact_uri` and `artifact_sha256`; Spring registers a `model_version` as `CANDIDATE`.
 - **Quality gate** before activation (initial thresholds, adjustable):
   1. at least 50 new labeled cases since the last model;
   2. candidate PR-AUC ≥ active PR-AUC;
   3. candidate recall ≥ active recall − 0.02.
-- Pass: candidate → `ACTIVE`, previous → `RETIRED`. Fail: it stays `CANDIDATE` and an alert shows on the dashboard; a `DATA_SCIENTIST` may activate it manually.
+- Pass: Spring calls `PUT /active-model`; the `scoring-service` downloads the file, checks its SHA-256, loads it into memory and only then swaps it for the previous one (no gap without a model). Candidate → `ACTIVE`, previous → `RETIRED`. Fail: it stays `CANDIDATE` and an alert shows on the dashboard; a `DATA_SCIENTIST` may activate it manually.
+- **Serving after a restart:** the `scoring-service` keeps the active model only in memory, so it starts with none (`/health` reports `activeModel: null`, `/score` answers `503` and decisions are `degraded`). When the `decision-service` sees that `activeModel` differs from the `ACTIVE` row, it calls `PUT /active-model` again. `/score` never touches the bucket.
