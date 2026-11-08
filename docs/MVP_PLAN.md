@@ -59,6 +59,8 @@ Defined in `docs/model.md` (single source, with Mermaid) and drawn in `docs/erd.
 ## 6. Prototype screens
 Login · Case queue · Transaction/case detail · Rule list · Create/edit rule (shadow, backtest, approval) · Simulator · Dashboard.
 
+Figma prototype and component gallery: https://www.figma.com/design/UQgvVVY2Sd9lRZY6cVPISY
+
 ## 7. Tentative schedule (6 weeks)
 | Week | Focus |
 |---|---|

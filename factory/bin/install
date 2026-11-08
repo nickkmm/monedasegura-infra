@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+"""Install this factory in a sibling repo, as a pull request.
+
+Usage: install <repo> [--update] [--skip-checks]
+
+<repo> is a sibling folder of monedasegura-infra (e.g. monedasegura-app) with a
+profile in factory/profiles/<repo>/:
+
+  checks.sh           that repo's checks (becomes its factory/checks.sh)
+  agents-section.md   repo-specific notes added to the factory section of its AGENTS.md
+  files/              files copied as they are (paths relative to the repo root)
+
+It works in a temporary git worktree of the target, branched from
+origin/develop, so the target's own checkout and uncommitted changes are never
+touched. It copies the factory (agents, Antigravity agents, skill, scripts,
+dashboard, license), applies the profile, adds the ignores and the AGENTS.md
+section, runs the target's checks, commits, pushes `feature/software-factory`
+and opens a PR against develop. Then it creates the factory labels there.
+
+--update        the target already has the factory: refresh it (same branch name)
+--skip-checks   don't run the target's checks before opening the PR
+"""
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+FACTORY = REPO / "factory"
+BRANCH = "feature/software-factory"
+BASE = "develop"
+GH = os.environ.get("FACTORY_GH", "gh")
+COPY = [
+    ".agents/skills/factory/SKILL.md",
+    "factory/config.json",
+    "factory/dashboard.html",
+    "factory/LICENSE",
+    "factory/bin/job",
+    "factory/bin/gate",
+    "factory/bin/route",
+    "factory/bin/plan",
+    "factory/bin/archive",
+    "factory/bin/sync-agents",
+]
+IGNORES = ["/factory/jobs/", "/.worktrees/"]
+START, END = "<!-- factory:start", "<!-- factory:end -->"
+LABELS = [
+    ("factory", "5319E7", "Build this with the software factory"),
+    ("factory:needs-info", "FBCA04", "The factory asked the author a question"),
+    ("factory:needs-human", "D93F0B", "The factory needs a human decision on the PR"),
+]
+
+
+def die(msg):
+    print(f"install: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def run(cmd, cwd, check=True):
+    res = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    if check and res.returncode != 0:
+        die(f"`{' '.join(cmd)}` failed in {cwd}: {(res.stderr or res.stdout).strip()}")
+    return res
+
+
+def agents_section(profile):
+    shared = (FACTORY / "agents-section.md").read_text().rstrip("\n")
+    extra = profile / "agents-section.md"
+    if extra.exists():
+        shared = shared.replace(END, "\n" + extra.read_text().strip("\n") + "\n" + END)
+    return shared + "\n"
+
+
+def write_agents_md(path, section, update):
+    text = path.read_text() if path.exists() else "# AGENTS.md\n"
+    if START in text:
+        if not update:
+            die(f"{path.name} already has a factory section; use --update")
+        text = re.sub(re.escape(START) + r".*?" + re.escape(END) + r"\n?", section, text, flags=re.S)
+    else:
+        text = text.rstrip("\n") + "\n\n" + section
+    path.write_text(text)
+
+
+def main(argv):
+    flags = {a for a in argv if a.startswith("--")}
+    names = [a for a in argv if not a.startswith("--")]
+    if len(names) != 1 or flags - {"--update", "--skip-checks"}:
+        die(__doc__.strip())
+    name = names[0]
+    update = "--update" in flags
+    target = REPO.parent / name
+    profile = FACTORY / "profiles" / name
+    if target.resolve() == REPO.resolve():
+        die("this is the infra repo itself")
+    if not (target / ".git").exists():
+        die(f"{target} isn't a git checkout; clone it next to monedasegura-infra first")
+    if not profile.is_dir() or not (profile / "checks.sh").exists():
+        die(f"no profile for {name}: add factory/profiles/{name}/checks.sh first")
+
+    slug = run([GH, "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], target).stdout.strip()
+    run(["git", "fetch", "origin", BASE], target)
+    if run(["git", "ls-remote", "--exit-code", "--heads", "origin", BRANCH], target, check=False).returncode == 0:
+        die(f"{slug} already has a {BRANCH} branch on origin; merge or delete it first")
+    if run(["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{BRANCH}"], target, check=False).returncode == 0:
+        die(f"{target} has a local {BRANCH} branch; delete it first (git branch -D {BRANCH})")
+
+    tmp = Path(tempfile.mkdtemp(prefix="factory-install-"))
+    wt = tmp / name
+    run(["git", "worktree", "add", "-B", BRANCH, str(wt), f"origin/{BASE}"], target)
+    try:
+        if (wt / "factory/bin/job").exists() and not update:
+            die(f"{slug} already has the factory; use --update")
+
+        for rel in COPY:
+            dest = wt / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(REPO / rel, dest)
+        for sub in (".claude/agents", ".agents/agents"):
+            dest = wt / sub
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(REPO / sub, dest)
+        shutil.copy2(profile / "checks.sh", wt / "factory/checks.sh")
+        files = profile / "files"
+        if files.is_dir():
+            shutil.copytree(files, wt, dirs_exist_ok=True)
+
+        skills = wt / ".claude/skills"
+        if not skills.exists() and not skills.is_symlink():
+            skills.parent.mkdir(parents=True, exist_ok=True)
+            skills.symlink_to("../.agents/skills")
+
+        gitignore = wt / ".gitignore"
+        lines = gitignore.read_text().splitlines() if gitignore.exists() else []
+        missing = [i for i in IGNORES if i not in lines]
+        if missing:
+            with gitignore.open("a") as f:
+                f.write("\n# Software factory: runtime state and job worktrees (local only)\n" + "\n".join(missing) + "\n")
+
+        write_agents_md(wt / "AGENTS.md", agents_section(profile), update)
+
+        run(["python3", "factory/bin/sync-agents", "--check"], wt)
+        if "--skip-checks" not in flags:
+            print(f"install: running {name}'s checks (this can take a few minutes)...")
+            res = run(["bash", "factory/checks.sh"], wt, check=False)
+            if res.returncode != 0:
+                tail = "\n".join((res.stdout + res.stderr).rstrip().splitlines()[-40:])
+                die(f"{name}'s checks fail with the factory installed; no PR opened.\n\n{tail}")
+
+        run(["git", "add", "--all", "--", ".agents", ".claude", "factory", ".gitignore", "AGENTS.md"]
+            + (["docs"] if (files / "docs").is_dir() else []), wt)
+        if not run(["git", "status", "--porcelain"], wt).stdout.strip():
+            die(f"{slug} is already up to date")
+        verb = "Update" if update else "Install"
+        run(["git", "commit", "-m", f"{verb} the software factory"], wt)
+        run(["git", "push", "-u", "origin", BRANCH], wt)
+
+        template = wt / ".github/pull_request_template.md"
+        body = (f"{verb}s the software factory from `monedasegura-infra` (`factory/bin/install`), "
+                f"with this repo's profile.\n\n"
+                "- `/factory run`, `/factory divide` and the rest: see the new `## Software factory` section in `AGENTS.md`.\n"
+                "- `factory/checks.sh` runs the same steps as CI.\n"
+                "- Claude Code agents in `.claude/agents/`; Antigravity agents in `.agents/agents/` (generated).\n"
+                "- Each person's factory only builds the issues assigned to them; a person always merges.\n")
+        if template.exists():
+            body += "\n---\n\n" + template.read_text()
+        pr = run([GH, "pr", "create", "-R", slug, "--base", BASE, "--head", BRANCH,
+                  "--title", f"{verb} the software factory", "--body", body], wt).stdout.strip()
+    finally:
+        run(["git", "worktree", "remove", "--force", str(wt)], target, check=False)
+        run(["git", "branch", "-D", BRANCH], target, check=False)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    for label, color, description in LABELS:
+        run([GH, "label", "create", label, "-R", slug, "--color", color,
+             "--description", description, "--force"], REPO)
+    print(f"install: {pr}")
+    print(f"install: labels ready in {slug}. Merge the PR, then `git pull` in {name} before `/factory run`.")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
