@@ -16,3 +16,7 @@
 
 # Third-party papers (copyright): local only
 data/02_references/
+
+# Software factory: runtime state and job worktrees (local only)
+/factory/jobs/
+/.worktrees/
